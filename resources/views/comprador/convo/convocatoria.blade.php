@@ -1,5 +1,4 @@
 @extends('layouts.app')
-
 @section('content')
 
 <div class="admin-layout">
@@ -7,73 +6,187 @@
     @include('comprador.sidebar')
 
     <div class="admin-content">
-        <div class="welcome-card">
-            <h2>Formulario de Convocatoria</h2>
 
-            <form action="{{ route('procedimientos.store') }}" method="POST">
+        <div class="conv-wrapper">
+
+            <h2 class="conv-title">Formulario de Convocatoria</h2>
+
+            <form action="{{ route('procedimientos.store') }}" method="POST" enctype="multipart/form-data" class="conv-form">
                 @csrf
 
-                <h3>Datos principales</h3>
+                <!-- ARCHIVO WORD -->
+                <div class="conv-card">
+                    <h3>Plantilla Word</h3>
 
-                <input type="text" name="nombre_procedimiento" placeholder="Nombre del procedimiento"><br><br>
+                    <div class="conv-group full">
+                        <label>Subir archivo Word (.docx)</label>
+                        <input type="file" name="archivo_word" accept=".docx" required>
+                    </div>
+                </div>
 
-                <input type="text" name="num_procedimiento" placeholder="Número de procedimiento"><br><br>
+                <!-- DATOS PRINCIPALES -->
+                <div class="conv-card">
+                    <h3>Datos principales</h3>
 
-                <label>Fecha publicación</label><br>
-                <input type="date" name="fecha_publicacion"><br><br>
+                    <div class="conv-grid">
 
-                <label>Fecha VM</label><br>
-                <input type="date" name="fecha_vm"><br><br>
+                        <div class="conv-group full">
+                            <label>Nombre del procedimiento</label>
+                            <input type="text" name="nombre_procedimiento" required>
+                        </div>
 
-                <label>Fecha ACL</label><br>
-                <input type="date" name="fecha_acl"><br><br>
+                        <div class="conv-group">
+                            <label>Número de procedimiento</label>
+                            <input type="text" name="num_procedimiento" required>
+                        </div>
 
-                <label>Hora ACL</label><br>
-                <input type="time" name="hora_acl"><br><br>
+                        <div class="conv-group">
+                            <label>Fecha publicación</label>
+                            <input type="date" name="fecha_publicacion">
+                        </div>
 
-                <label>Fecha apertura</label><br>
-                <input type="date" name="fecha_apertura"><br><br>
+                        <div class="conv-group">
+                            <label>Fecha VM</label>
+                            <input type="date" name="fecha_vm">
+                        </div>
 
-                <label>Hora apertura</label><br>
-                <input type="time" name="hora_apertura"><br><br>
+                        <div class="conv-group">
+                            <label>Fecha ACL</label>
+                            <input type="date" name="fecha_acl">
+                        </div>
 
-                <label>Fecha fallo</label><br>
-                <input type="date" name="fecha_fallo"><br><br>
+                        <div class="conv-group">
+                            <label>Hora ACL</label>
+                            <input type="time" name="hora_acl">
+                        </div>
 
-                <label>Hora fallo</label><br>
-                <input type="time" name="hora_fallo"><br><br>
+                        <div class="conv-group">
+                            <label>Fecha apertura</label>
+                            <input type="date" name="fecha_apertura">
+                        </div>
 
-                <hr>
+                        <div class="conv-group">
+                            <label>Hora apertura</label>
+                            <input type="time" name="hora_apertura">
+                        </div>
 
-                <h3>Datos para documento (no se guardan)</h3>
+                        <div class="conv-group">
+                            <label>Fecha fallo</label>
+                            <input type="date" name="fecha_fallo">
+                        </div>
 
-                <input type="text" name="partida_nombre" placeholder="Nombre de partida"><br><br>
+                        <div class="conv-group">
+                            <label>Hora fallo</label>
+                            <input type="time" name="hora_fallo">
+                        </div>
 
-                <input type="text" name="num_requisicion" placeholder="Número de requisición"><br><br>
+                    </div>
+                </div>
 
-                <input type="text" name="resp_tecnico" placeholder="Responsable técnico"><br><br>
+                <!-- DATOS DOCUMENTO -->
+                <div class="conv-card">
+                    <h3>Datos para documento</h3>
 
-                <input type="text" name="cargo_tecnico" placeholder="Cargo técnico"><br><br>
+                    <div class="conv-grid">
 
-                <input type="text" name="resp_admin" placeholder="Responsable administrativo"><br><br>
+                        <div class="conv-group">
+                            <label>Número de partida</label>
+                            <input type="text" name="num_partida">
+                        </div>
 
-                <input type="number" step="0.01" name="monto_maximo" placeholder="Monto máximo"><br><br>
+                        <div class="conv-group">
+                            <label>Nombre de partida</label>
+                            <input type="text" name="partida_nombre">
+                        </div>
 
-                <input type="number" step="0.01" name="monto_minimo" placeholder="Monto mínimo"><br><br>
+                        <div class="conv-group">
+                            <label>Número de requisición</label>
+                            <input type="text" name="num_requisicion">
+                        </div>
 
-                <input type="text" name="plazo_contrato" placeholder="Plazo contrato"><br><br>
+                        <!-- 🔥 RESPONSABLE TÉCNICO -->
+                        <div class="conv-group">
+                            <label>Responsable técnico</label>
 
-                <input type="text" name="ruta_documento" placeholder="Ruta documento"><br><br>
+                            <select name="resp_tecnico" id="resp_tecnico">
+                                <option value="">Seleccionar persona</option>
 
-                <input type="date" name="fecha_creacion"><br><br>
+                                @foreach($personas as $persona)
+                                    <option value="{{ $persona->nombre }}"
+                                            data-cargo="{{ $persona->cargo }}">
+                                        {{ $persona->nombre }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
 
-                <button type="submit">Guardar</button>
+                        <div class="conv-group">
+                            <label>Cargo técnico</label>
+                            <input type="text" name="cargo_tecnico" id="cargo_tecnico" readonly>
+                        </div>
+
+                        <!-- 🔥 RESPONSABLE ADMIN -->
+                        <div class="conv-group">
+                            <label>Responsable administrativo</label>
+
+                            <select name="resp_admin" id="resp_admin">
+                                <option value="">Seleccionar persona</option>
+
+                                @foreach($personas as $persona)
+                                    <option value="{{ $persona->nombre }}"
+                                            data-cargo="{{ $persona->cargo }}">
+                                        {{ $persona->nombre }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="conv-group">
+                            <label>Cargo administrativo</label>
+                            <input type="text" id="cargo_admin" readonly>
+                        </div>
+
+                        <div class="conv-group">
+                            <label>Monto máximo</label>
+                            <input type="number" step="0.01" name="monto_maximo">
+                        </div>
+
+                        <div class="conv-group">
+                            <label>Monto mínimo</label>
+                            <input type="number" step="0.01" name="monto_minimo">
+                        </div>
+
+                        <div class="conv-group">
+                            <label>Plazo contrato</label>
+                            <input type="text" name="plazo_contrato">
+                        </div>
+
+                    </div>
+                </div>
+
+                <button type="submit" class="conv-btn">
+                    Guardar y descargar Word
+                </button>
 
             </form>
+
         </div>
 
     </div>
 
 </div>
+
+<!--SCRIPT AUTOCOMPLETADO -->
+<script>
+document.getElementById('resp_tecnico').addEventListener('change', function() {
+    let cargo = this.options[this.selectedIndex].getAttribute('data-cargo');
+    document.getElementById('cargo_tecnico').value = cargo || '';
+});
+
+document.getElementById('resp_admin').addEventListener('change', function() {
+    let cargo = this.options[this.selectedIndex].getAttribute('data-cargo');
+    document.getElementById('cargo_admin').value = cargo || '';
+});
+</script>
 
 @endsection

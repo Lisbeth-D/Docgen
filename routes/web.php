@@ -43,6 +43,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/procedimientos', [ProcedimientoController::class, 'store'])
             ->name('procedimientos.store');
 
+        Route::get('/procedimientos/{id}', [ProcedimientoController::class, 'show'])->name('procedimientos.show');
+        Route::get('/procedimientos/{id}/descargar', [ProcedimientoController::class, 'descargar'])->name('procedimientos.descargar');
+
     });
 
     /*
