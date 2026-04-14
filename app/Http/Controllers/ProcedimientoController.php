@@ -9,26 +9,18 @@ use PhpOffice\PhpWord\TemplateProcessor;
 
 class ProcedimientoController extends Controller
 {
-    /**
-     * Mostrar formulario de convocatoria
-     */
     public function convocatoria()
     {
         $personas = Persona::orderBy('nombre')->get();
-
         return view('comprador.convo.convocatoria', compact('personas'));
     }
 
-    /**
-     * 🔥 FUNCIÓN PARA LIMPIAR Y FORMATEAR MONTOS
-     */
     private function formatearMonto($valor)
     {
         if (!$valor) return '0.00';
 
         $valor = trim($valor);
 
-        // Detectar formato europeo (coma decimal)
         if (preg_match('/,\d{1,2}$/', $valor)) {
             $valor = str_replace('.', '', $valor);
             $valor = str_replace(',', '.', $valor);
@@ -41,9 +33,6 @@ class ProcedimientoController extends Controller
         return number_format($numero, 2, '.', ',');
     }
 
-    /**
-     * Guardar + generar Word + descargar
-     */
     public function store(Request $request)
     {
         $request->validate([
@@ -52,9 +41,6 @@ class ProcedimientoController extends Controller
             'archivo_word'         => 'required|file|mimes:docx'
         ]);
 
-        // =========================
-        // 1. GUARDAR EN BD
-        // =========================
         $procedimiento = Procedimiento::create([
             'nombre_procedimiento' => $request->nombre_procedimiento,
             'num_procedimiento'    => $request->num_procedimiento,
@@ -68,9 +54,6 @@ class ProcedimientoController extends Controller
             'hora_fallo'           => $request->hora_fallo,
         ]);
 
-        // =========================
-        // 2. PROCESAR WORD
-        // =========================
         if ($request->hasFile('archivo_word')) {
 
             $file = $request->file('archivo_word');
@@ -86,51 +69,127 @@ class ProcedimientoController extends Controller
 
             $templatePath = $templateDir . DIRECTORY_SEPARATOR . $filename;
 
-            if (!file_exists($templatePath)) {
-                return back()->with('error', 'No se encontró el archivo Word');
-            }
-
             $templateProcessor = new TemplateProcessor($templatePath);
 
             // =========================
-            // 3. REEMPLAZOS PRINCIPALES
+            // FORMATEO HORAS (🔥 BONUS)
+            // =========================
+            $horaVM = $request->hora_vm ? strtoupper($request->hora_vm . ' HORAS') : '';
+            $horaACL = $request->hora_acl ? strtoupper($request->hora_acl . ' HORAS') : '';
+            $horaApertura = $request->hora_apertura ? strtoupper($request->hora_apertura . ' HORAS') : '';
+            $horaFallo = $request->hora_fallo ? strtoupper($request->hora_fallo . ' HORAS') : '';
+
+            // =========================
+            // REEMPLAZOS PRINCIPALES
             // =========================
             $templateProcessor->setValue('nombre_procedimiento', $request->nombre_procedimiento);
             $templateProcessor->setValue('num_procedimiento', $request->num_procedimiento);
             $templateProcessor->setValue('fecha_publicacion', $request->fecha_publicacion);
-            $templateProcessor->setValue('fecha_vm', $request->fecha_vm);
-            $templateProcessor->setValue('fecha_acl', $request->fecha_acl);
-            $templateProcessor->setValue('hora_acl', $request->hora_acl);
-            $templateProcessor->setValue('fecha_apertura', $request->fecha_apertura);
-            $templateProcessor->setValue('hora_apertura', $request->hora_apertura);
-            $templateProcessor->setValue('fecha_fallo', $request->fecha_fallo);
-            $templateProcessor->setValue('hora_fallo', $request->hora_fallo);
 
             // =========================
-            // 4. PERSONAS
+            // V/M
+            // =========================
+            if ($request->aplica_vm == 'SI' && $request->fecha_vm && $request->hora_vm) {
+
+                $meses = [
+                    1 => 'ENERO', 2 => 'FEBRERO', 3 => 'MARZO',
+                    4 => 'ABRIL', 5 => 'MAYO', 6 => 'JUNIO',
+                    7 => 'JULIO', 8 => 'AGOSTO', 9 => 'SEPTIEMBRE',
+                    10 => 'OCTUBRE', 11 => 'NOVIEMBRE', 12 => 'DICIEMBRE'
+                ];
+
+                $f = \Carbon\Carbon::parse($request->fecha_vm);
+
+                $textoVM = "EL {$f->day} DE {$meses[$f->month]} DE {$f->year} A LAS $horaVM";
+
+            } else {
+                $textoVM = "NO APLICA";
+            }
+
+            $templateProcessor->setValue('fecha_vm', $textoVM);
+
+            // =========================
+            // ACL
+            // =========================
+            if ($request->aplica_acl == 'SI' && $request->fecha_acl && $request->hora_acl) {
+
+                $meses = [
+                    1 => 'ENERO', 2 => 'FEBRERO', 3 => 'MARZO',
+                    4 => 'ABRIL', 5 => 'MAYO', 6 => 'JUNIO',
+                    7 => 'JULIO', 8 => 'AGOSTO', 9 => 'SEPTIEMBRE',
+                    10 => 'OCTUBRE', 11 => 'NOVIEMBRE', 12 => 'DICIEMBRE'
+                ];
+
+                $f = \Carbon\Carbon::parse($request->fecha_acl);
+
+                $aclTexto = "EL {$f->day} DE {$meses[$f->month]} DE {$f->year}, A LAS $horaACL";
+                $aclTabla = "{$f->day}-{$meses[$f->month]}-{$f->year}";
+
+            } else {
+
+                $aclTexto = "NO APLICA\nDE ACUERDO CON EL ARTÍCULO 56, FRACCIÓN V, SE ESTABLECE QUE A LAS DEMÁS DISPOSICIONES DE ESTA LEY QUE RESULTEN APLICABLES A LA LICITACIÓN PÚBLICA, SIENDO OPTATIVO PARA LA CONVOCANTE LA REALIZACIÓN DE LA JUNTA DE ACLARACIONES.";
+                $aclTabla = "NO APLICA";
+            }
+
+            // =========================
+            // APERTURA
+            // =========================
+            $fA = \Carbon\Carbon::parse($request->fecha_apertura);
+
+            $meses = [
+                1 => 'ENERO', 2 => 'FEBRERO', 3 => 'MARZO',
+                4 => 'ABRIL', 5 => 'MAYO', 6 => 'JUNIO',
+                7 => 'JULIO', 8 => 'AGOSTO', 9 => 'SEPTIEMBRE',
+                10 => 'OCTUBRE', 11 => 'NOVIEMBRE', 12 => 'DICIEMBRE'
+            ];
+
+            $aperturaTexto = "EL DÍA {$fA->day} DE {$meses[$fA->month]} DE {$fA->year}, A LAS $horaApertura";
+            $aperturaTabla = "{$fA->day}-{$meses[$fA->month]}-{$fA->year}";
+
+            // =========================
+            // FALLO
+            // =========================
+            $fF = \Carbon\Carbon::parse($request->fecha_fallo);
+
+            $falloTexto = "EL DÍA {$fF->day} DE {$meses[$fF->month]} DE {$fF->year}, A LAS $horaFallo";
+            $falloTabla = "{$fF->day}-{$meses[$fF->month]}-{$fF->year}";
+
+            // =========================
+            // ENVIAR A WORD
+            // =========================
+            $templateProcessor->setValue('acl_texto', $aclTexto);
+            $templateProcessor->setValue('acl_tabla', $aclTabla);
+
+            $templateProcessor->setValue('apertura_texto', $aperturaTexto);
+            $templateProcessor->setValue('apertura_tabla', $aperturaTabla);
+            $templateProcessor->setValue('hora_apertura', $horaApertura);
+
+            $templateProcessor->setValue('fallo_texto', $falloTexto);
+            $templateProcessor->setValue('fallo_tabla', $falloTabla);
+            $templateProcessor->setValue('hora_fallo', $horaFallo);
+
+            // =========================
+            // PERSONAS
             // =========================
             $templateProcessor->setValue('resp_tecnico', $request->resp_tecnico);
             $templateProcessor->setValue('cargo_tecnico', $request->cargo_tecnico);
-            $templateProcessor->setValue('resp_admin', $request->resp_admin);
 
             // =========================
-            // 5. FORMATEAR MONTOS 🔥
+            // MONTOS
             // =========================
-            $montoMaximo = $this->formatearMonto($request->monto_maximo);
-            $montoMinimo = $this->formatearMonto($request->monto_minimo);
+            $templateProcessor->setValue('monto_maximo', $this->formatearMonto($request->monto_maximo));
+            $templateProcessor->setValue('monto_minimo', $this->formatearMonto($request->monto_minimo));
 
             // =========================
-            // 6. SOLO WORD
+            // OTROS
             // =========================
             $templateProcessor->setValue('num_partida', $request->num_partida);
             $templateProcessor->setValue('partida_nombre', $request->partida_nombre);
             $templateProcessor->setValue('num_requisicion', $request->num_requisicion);
-            $templateProcessor->setValue('monto_maximo', $montoMaximo);
-            $templateProcessor->setValue('monto_minimo', $montoMinimo);
             $templateProcessor->setValue('plazo_contrato', $request->plazo_contrato);
 
             // =========================
-            // 7. GUARDAR DOCUMENTO
+            // GUARDAR
             // =========================
             $outputDir = storage_path('app/public/documentos');
 
@@ -143,38 +202,25 @@ class ProcedimientoController extends Controller
 
             $templateProcessor->saveAs($outputPath);
 
-            // =========================
-            // 8. GUARDAR RUTA EN BD
-            // =========================
             $procedimiento->update([
                 'ruta_documento' => 'documentos/' . $outputName
             ]);
 
-            // =========================
-            // 9. DESCARGA AUTOMÁTICA
-            // =========================
             return response()->download($outputPath);
         }
 
         return back()->with('error', 'No se subió ningún archivo');
     }
 
-    /**
-     * Mostrar resultado (opcional)
-     */
     public function show($id)
     {
         $procedimiento = Procedimiento::findOrFail($id);
         return view('comprador.convo.resultado', compact('procedimiento'));
     }
 
-    /**
-     * Descargar manual
-     */
     public function descargar($id)
     {
         $procedimiento = Procedimiento::findOrFail($id);
-
         $path = storage_path('app/public/' . $procedimiento->ruta_documento);
 
         return response()->download($path);

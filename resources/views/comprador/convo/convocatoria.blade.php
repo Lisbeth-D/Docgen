@@ -45,19 +45,48 @@
                             <input type="date" name="fecha_publicacion">
                         </div>
 
+                        <!-- VISITA O MUESTRA -->
                         <div class="conv-group">
-                            <label>Fecha VM</label>
-                            <input type="date" name="fecha_vm">
+                            <label>¿Aplica visita o muestra?</label>
+                            <select id="aplica_vm" name="aplica_vm">
+                                <option value="">Seleccionar</option>
+                                <option value="SI">Sí</option>
+                                <option value="NO">No</option>
+                            </select>
+                        </div>
+
+                        <!-- CAMPOS VM -->
+                        <div id="campo_vm" style="display:none;" class="conv-group full">
+
+                            <div class="conv-group">
+                                <label>Fecha VM</label>
+                                <input type="date" name="fecha_vm" id="fecha_vm" disabled>
+                            </div>
+
+                            <div class="conv-group">
+                                <label>Hora VM</label>
+                                <input type="time" name="hora_vm" id="hora_vm" disabled>
+                            </div>
+
+                        </div>
+
+                        <!-- ACL -->
+                        <div class="conv-group">
+                            <label>¿Aplica junta de aclaraciones?</label>
+                            <select name="aplica_acl" id="aplica_acl">
+                                <option value="NO" selected>No</option>
+                                <option value="SI">Sí</option>
+                            </select>
                         </div>
 
                         <div class="conv-group">
                             <label>Fecha ACL</label>
-                            <input type="date" name="fecha_acl">
+                            <input type="date" name="fecha_acl" id="fecha_acl" disabled>
                         </div>
 
                         <div class="conv-group">
                             <label>Hora ACL</label>
-                            <input type="time" name="hora_acl">
+                            <input type="time" name="hora_acl" id="hora_acl" disabled>
                         </div>
 
                         <div class="conv-group">
@@ -104,7 +133,7 @@
                             <input type="text" name="num_requisicion">
                         </div>
 
-                        <!-- 🔥 RESPONSABLE TÉCNICO -->
+                        <!-- RESPONSABLE TÉCNICO -->
                         <div class="conv-group">
                             <label>Responsable técnico</label>
 
@@ -125,35 +154,14 @@
                             <input type="text" name="cargo_tecnico" id="cargo_tecnico" readonly>
                         </div>
 
-                        <!-- 🔥 RESPONSABLE ADMIN -->
-                        <div class="conv-group">
-                            <label>Responsable administrativo</label>
-
-                            <select name="resp_admin" id="resp_admin">
-                                <option value="">Seleccionar persona</option>
-
-                                @foreach($personas as $persona)
-                                    <option value="{{ $persona->nombre }}"
-                                            data-cargo="{{ $persona->cargo }}">
-                                        {{ $persona->nombre }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div class="conv-group">
-                            <label>Cargo administrativo</label>
-                            <input type="text" id="cargo_admin" readonly>
-                        </div>
-
                         <div class="conv-group">
                             <label>Monto máximo</label>
-                            <input type="number" step="0.01" name="monto_maximo">
+                            <input type="text" name="monto_maximo">
                         </div>
 
                         <div class="conv-group">
                             <label>Monto mínimo</label>
-                            <input type="number" step="0.01" name="monto_minimo">
+                            <input type="text" name="monto_minimo">
                         </div>
 
                         <div class="conv-group">
@@ -176,8 +184,10 @@
 
 </div>
 
-<!--SCRIPT AUTOCOMPLETADO -->
+<!-- SCRIPT GENERAL -->
 <script>
+
+// AUTOCOMPLETAR CARGOS
 document.getElementById('resp_tecnico').addEventListener('change', function() {
     let cargo = this.options[this.selectedIndex].getAttribute('data-cargo');
     document.getElementById('cargo_tecnico').value = cargo || '';
@@ -187,6 +197,36 @@ document.getElementById('resp_admin').addEventListener('change', function() {
     let cargo = this.options[this.selectedIndex].getAttribute('data-cargo');
     document.getElementById('cargo_admin').value = cargo || '';
 });
+
+// VISITA O MUESTRA
+document.getElementById('aplica_vm').addEventListener('change', function () {
+
+    let activa = this.value === 'SI';
+
+    document.getElementById('campo_vm').style.display = activa ? 'block' : 'none';
+    document.getElementById('fecha_vm').disabled = !activa;
+    document.getElementById('hora_vm').disabled = !activa;
+
+    if (!activa) {
+        document.getElementById('fecha_vm').value = '';
+        document.getElementById('hora_vm').value = '';
+    }
+});
+
+// ACL
+document.getElementById('aplica_acl').addEventListener('change', function () {
+
+    let activa = this.value === 'SI';
+
+    document.getElementById('fecha_acl').disabled = !activa;
+    document.getElementById('hora_acl').disabled = !activa;
+
+    if (!activa) {
+        document.getElementById('fecha_acl').value = '';
+        document.getElementById('hora_acl').value = '';
+    }
+});
+
 </script>
 
 @endsection
