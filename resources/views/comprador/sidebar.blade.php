@@ -23,10 +23,12 @@
 
             <ul class="submenu" id="oficiosSubmenu">
                 <li>
-                    <a href="#">
-                        <i data-feather="search"></i>
-                        Revisión
-                    </a>
+                    <li>
+                        <a href="{{ route('revision.form') }}">
+                            <i data-feather="search"></i>
+                            Revisión
+                        </a>
+                    </li>
                 </li>
                 <li>
                     <a href="#">

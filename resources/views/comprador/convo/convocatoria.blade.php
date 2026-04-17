@@ -30,6 +30,19 @@
 
                     <div class="conv-grid">
 
+                        <!-- TIPO PROCEDIMIENTO -->
+                        <div class="conv-group">
+                            <label>Tipo de procedimiento</label>
+                            <select name="id_tipo_procedimiento" required>
+                                <option value="">Seleccionar</option>
+                                @foreach($tipos as $tipo)
+                                    <option value="{{ $tipo->id_tipo_procedimiento }}">
+                                        {{ $tipo->nombre_tipo }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
                         <div class="conv-group full">
                             <label>Nombre del procedimiento</label>
                             <input type="text" name="nombre_procedimiento" required>
@@ -56,18 +69,16 @@
                         </div>
 
                         <!-- CAMPOS VM -->
-                        <div id="campo_vm" style="display:none;" class="conv-group full">
-
+                        <div id="campo_vm" class="conv-group full" style="display:none;">
                             <div class="conv-group">
                                 <label>Fecha VM</label>
-                                <input type="date" name="fecha_vm" id="fecha_vm" disabled>
+                                <input type="date" name="fecha_vm" id="fecha_vm">
                             </div>
 
                             <div class="conv-group">
                                 <label>Hora VM</label>
-                                <input type="time" name="hora_vm" id="hora_vm" disabled>
+                                <input type="time" name="hora_vm" id="hora_vm">
                             </div>
-
                         </div>
 
                         <!-- ACL -->
@@ -79,14 +90,17 @@
                             </select>
                         </div>
 
-                        <div class="conv-group">
-                            <label>Fecha ACL</label>
-                            <input type="date" name="fecha_acl" id="fecha_acl" disabled>
-                        </div>
+                        <!-- CAMPOS ACL -->
+                        <div id="campo_acl" class="conv-group full" style="display:none;">
+                            <div class="conv-group">
+                                <label>Fecha ACL</label>
+                                <input type="date" name="fecha_acl" id="fecha_acl">
+                            </div>
 
-                        <div class="conv-group">
-                            <label>Hora ACL</label>
-                            <input type="time" name="hora_acl" id="hora_acl" disabled>
+                            <div class="conv-group">
+                                <label>Hora ACL</label>
+                                <input type="time" name="hora_acl" id="hora_acl">
+                            </div>
                         </div>
 
                         <div class="conv-group">
@@ -133,7 +147,7 @@
                             <input type="text" name="num_requisicion">
                         </div>
 
-                        <!-- RESPONSABLE TÉCNICO -->
+                        <!-- RESPONSABLE -->
                         <div class="conv-group">
                             <label>Responsable técnico</label>
 
@@ -141,7 +155,7 @@
                                 <option value="">Seleccionar persona</option>
 
                                 @foreach($personas as $persona)
-                                    <option value="{{ $persona->nombre }}"
+                                    <option value="{{ $persona->id }}"
                                             data-cargo="{{ $persona->cargo }}">
                                         {{ $persona->nombre }}
                                     </option>
@@ -165,8 +179,13 @@
                         </div>
 
                         <div class="conv-group">
-                            <label>Plazo contrato</label>
-                            <input type="text" name="plazo_contrato">
+                            <label>Fecha inicio contrato</label>
+                            <input type="date" name="fecha_inicio_contrato">
+                        </div>
+
+                        <div class="conv-group">
+                            <label>Fecha fin contrato</label>
+                            <input type="date" name="fecha_fin_contrato">
                         </div>
 
                     </div>
@@ -184,49 +203,52 @@
 
 </div>
 
-<!-- SCRIPT GENERAL -->
+<!-- SCRIPT -->
 <script>
+document.addEventListener('DOMContentLoaded', function () {
 
-// AUTOCOMPLETAR CARGOS
-document.getElementById('resp_tecnico').addEventListener('change', function() {
-    let cargo = this.options[this.selectedIndex].getAttribute('data-cargo');
-    document.getElementById('cargo_tecnico').value = cargo || '';
-});
-
-document.getElementById('resp_admin').addEventListener('change', function() {
-    let cargo = this.options[this.selectedIndex].getAttribute('data-cargo');
-    document.getElementById('cargo_admin').value = cargo || '';
-});
-
-// VISITA O MUESTRA
-document.getElementById('aplica_vm').addEventListener('change', function () {
-
-    let activa = this.value === 'SI';
-
-    document.getElementById('campo_vm').style.display = activa ? 'block' : 'none';
-    document.getElementById('fecha_vm').disabled = !activa;
-    document.getElementById('hora_vm').disabled = !activa;
-
-    if (!activa) {
-        document.getElementById('fecha_vm').value = '';
-        document.getElementById('hora_vm').value = '';
+    // AUTOCOMPLETAR CARGO
+    const resp = document.getElementById('resp_tecnico');
+    if (resp) {
+        resp.addEventListener('change', function() {
+            let cargo = this.options[this.selectedIndex].getAttribute('data-cargo');
+            document.getElementById('cargo_tecnico').value = cargo || '';
+        });
     }
-});
 
-// ACL
-document.getElementById('aplica_acl').addEventListener('change', function () {
+    // VISITA O MUESTRA
+    const vm = document.getElementById('aplica_vm');
+    if (vm) {
+        vm.addEventListener('change', function () {
+            let activa = this.value === 'SI';
+            document.getElementById('campo_vm').style.display = activa ? 'block' : 'none';
 
-    let activa = this.value === 'SI';
+            if (!activa) {
+                document.getElementById('fecha_vm').value = '';
+                document.getElementById('hora_vm').value = '';
+            }
+        });
 
-    document.getElementById('fecha_acl').disabled = !activa;
-    document.getElementById('hora_acl').disabled = !activa;
-
-    if (!activa) {
-        document.getElementById('fecha_acl').value = '';
-        document.getElementById('hora_acl').value = '';
+        vm.dispatchEvent(new Event('change'));
     }
-});
 
+    // ACL
+    const acl = document.getElementById('aplica_acl');
+    if (acl) {
+        acl.addEventListener('change', function () {
+            let activa = this.value === 'SI';
+            document.getElementById('campo_acl').style.display = activa ? 'block' : 'none';
+
+            if (!activa) {
+                document.getElementById('fecha_acl').value = '';
+                document.getElementById('hora_acl').value = '';
+            }
+        });
+
+        acl.dispatchEvent(new Event('change'));
+    }
+
+});
 </script>
 
 @endsection

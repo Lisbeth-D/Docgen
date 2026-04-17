@@ -26,7 +26,7 @@
 
                 <ul class="submenu" id="oficiosSubmenu">
                     <li>
-                        <a href="#">
+                        <a href="{{ route('revision.form') }}">
                             <i data-feather="search"></i>
                             Revisión
                         </a>

@@ -6,7 +6,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\ProcedimientoController;
-
+use App\Http\Controllers\RevisionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -45,6 +45,9 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/procedimientos/{id}', [ProcedimientoController::class, 'show'])->name('procedimientos.show');
         Route::get('/procedimientos/{id}/descargar', [ProcedimientoController::class, 'descargar'])->name('procedimientos.descargar');
+
+        Route::get('/revision', [RevisionController::class, 'index'])->name('revision.form');
+        Route::post('/revision', [RevisionController::class, 'generar'])->name('revision.generar');
 
     });
 

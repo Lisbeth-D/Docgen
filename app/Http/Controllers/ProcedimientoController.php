@@ -5,14 +5,19 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Procedimiento;
 use App\Models\Persona;
+use App\Models\TipoProcedimiento;
 use PhpOffice\PhpWord\TemplateProcessor;
+use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 class ProcedimientoController extends Controller
 {
     public function convocatoria()
     {
         $personas = Persona::orderBy('nombre')->get();
-        return view('comprador.convo.convocatoria', compact('personas'));
+        $tipos = TipoProcedimiento::all();
+
+        return view('comprador.convo.convocatoria', compact('personas', 'tipos'));
     }
 
     private function formatearMonto($valor)
@@ -28,9 +33,7 @@ class ProcedimientoController extends Controller
             $valor = str_replace(',', '', $valor);
         }
 
-        $numero = floatval($valor);
-
-        return number_format($numero, 2, '.', ',');
+        return number_format(floatval($valor), 2, '.', ',');
     }
 
     public function store(Request $request)
@@ -41,19 +44,39 @@ class ProcedimientoController extends Controller
             'archivo_word'         => 'required|file|mimes:docx'
         ]);
 
+        $persona = Persona::find($request->resp_tecnico);
+
+        // =========================
+        // GUARDAR EN BD
+        // =========================
         $procedimiento = Procedimiento::create([
-            'nombre_procedimiento' => $request->nombre_procedimiento,
-            'num_procedimiento'    => $request->num_procedimiento,
-            'fecha_publicacion'    => $request->fecha_publicacion,
-            'fecha_vm'             => $request->fecha_vm,
-            'fecha_ac'             => $request->fecha_acl,
-            'hora_ac'              => $request->hora_acl,
-            'fecha_apertura'       => $request->fecha_apertura,
-            'hora_apertura'        => $request->hora_apertura,
-            'fecha_fallo'          => $request->fecha_fallo,
-            'hora_fallo'           => $request->hora_fallo,
+            'id_tipo_procedimiento' => $request->id_tipo_procedimiento,
+            'nombre_procedimiento'  => $request->nombre_procedimiento,
+            'num_procedimiento'     => $request->num_procedimiento,
+            'fecha_publicacion'     => $request->fecha_publicacion,
+
+            'fecha_vm'              => $request->fecha_vm,
+            'hora_vm'               => $request->hora_vm,
+
+            'fecha_ac'              => $request->fecha_acl,
+            'hora_ac'               => $request->hora_acl,
+
+            'fecha_apertura'        => $request->fecha_apertura,
+            'hora_apertura'         => $request->hora_apertura,
+
+            'fecha_fallo'           => $request->fecha_fallo,
+            'hora_fallo'            => $request->hora_fallo,
+
+            'fecha_inicio_contrato' => $request->fecha_inicio_contrato,
+            'fecha_fin_contrato'    => $request->fecha_fin_contrato,
+
+            'user_id'               => Auth::id(),
+            'id_persona'            => $persona ? $persona->id : null,
         ]);
 
+        // =========================
+        // WORD
+        // =========================
         if ($request->hasFile('archivo_word')) {
 
             $file = $request->file('archivo_word');
@@ -67,130 +90,105 @@ class ProcedimientoController extends Controller
 
             $file->move($templateDir, $filename);
 
-            $templatePath = $templateDir . DIRECTORY_SEPARATOR . $filename;
+            $templateProcessor = new TemplateProcessor($templateDir . '/' . $filename);
 
-            $templateProcessor = new TemplateProcessor($templatePath);
-
-            // =========================
-            // FORMATEO HORAS (🔥 BONUS)
-            // =========================
-            $horaVM = $request->hora_vm ? strtoupper($request->hora_vm . ' HORAS') : '';
-            $horaACL = $request->hora_acl ? strtoupper($request->hora_acl . ' HORAS') : '';
+            // HORAS
+            $horaVM       = $request->hora_vm ? strtoupper($request->hora_vm . ' HORAS') : '';
+            $horaACL      = $request->hora_acl ? strtoupper($request->hora_acl . ' HORAS') : '';
             $horaApertura = $request->hora_apertura ? strtoupper($request->hora_apertura . ' HORAS') : '';
-            $horaFallo = $request->hora_fallo ? strtoupper($request->hora_fallo . ' HORAS') : '';
+            $horaFallo    = $request->hora_fallo ? strtoupper($request->hora_fallo . ' HORAS') : '';
 
-            // =========================
-            // REEMPLAZOS PRINCIPALES
-            // =========================
-            $templateProcessor->setValue('nombre_procedimiento', $request->nombre_procedimiento);
-            $templateProcessor->setValue('num_procedimiento', $request->num_procedimiento);
-            $templateProcessor->setValue('fecha_publicacion', $request->fecha_publicacion);
+            // MESES
+            $meses = [
+                1=>'ENERO',2=>'FEBRERO',3=>'MARZO',4=>'ABRIL',
+                5=>'MAYO',6=>'JUNIO',7=>'JULIO',8=>'AGOSTO',
+                9=>'SEPTIEMBRE',10=>'OCTUBRE',11=>'NOVIEMBRE',12=>'DICIEMBRE'
+            ];
 
-            // =========================
-            // V/M
-            // =========================
+            // VM
             if ($request->aplica_vm == 'SI' && $request->fecha_vm && $request->hora_vm) {
-
-                $meses = [
-                    1 => 'ENERO', 2 => 'FEBRERO', 3 => 'MARZO',
-                    4 => 'ABRIL', 5 => 'MAYO', 6 => 'JUNIO',
-                    7 => 'JULIO', 8 => 'AGOSTO', 9 => 'SEPTIEMBRE',
-                    10 => 'OCTUBRE', 11 => 'NOVIEMBRE', 12 => 'DICIEMBRE'
-                ];
-
-                $f = \Carbon\Carbon::parse($request->fecha_vm);
-
-                $textoVM = "EL {$f->day} DE {$meses[$f->month]} DE {$f->year} A LAS $horaVM";
-
+                $f = Carbon::parse($request->fecha_vm);
+                $textoVM = "{$f->day} de {$meses[$f->month]} de {$f->year} a las $horaVM";
             } else {
                 $textoVM = "NO APLICA";
             }
 
-            $templateProcessor->setValue('fecha_vm', $textoVM);
-
-            // =========================
             // ACL
-            // =========================
             if ($request->aplica_acl == 'SI' && $request->fecha_acl && $request->hora_acl) {
+                $f = Carbon::parse($request->fecha_acl);
 
-                $meses = [
-                    1 => 'ENERO', 2 => 'FEBRERO', 3 => 'MARZO',
-                    4 => 'ABRIL', 5 => 'MAYO', 6 => 'JUNIO',
-                    7 => 'JULIO', 8 => 'AGOSTO', 9 => 'SEPTIEMBRE',
-                    10 => 'OCTUBRE', 11 => 'NOVIEMBRE', 12 => 'DICIEMBRE'
-                ];
-
-                $f = \Carbon\Carbon::parse($request->fecha_acl);
-
-                $aclTexto = "EL {$f->day} DE {$meses[$f->month]} DE {$f->year}, A LAS $horaACL";
+                $aclTexto = "{$f->day} de {$meses[$f->month]} de {$f->year}, a las $horaACL";
                 $aclTabla = "{$f->day}-{$meses[$f->month]}-{$f->year}";
-
             } else {
-
-                $aclTexto = "NO APLICA\nDE ACUERDO CON EL ARTÍCULO 56, FRACCIÓN V, SE ESTABLECE QUE A LAS DEMÁS DISPOSICIONES DE ESTA LEY QUE RESULTEN APLICABLES A LA LICITACIÓN PÚBLICA, SIENDO OPTATIVO PARA LA CONVOCANTE LA REALIZACIÓN DE LA JUNTA DE ACLARACIONES.";
+                $aclTexto = "NO APLICA";
                 $aclTabla = "NO APLICA";
             }
 
-            // =========================
             // APERTURA
-            // =========================
-            $fA = \Carbon\Carbon::parse($request->fecha_apertura);
+            $aperturaTexto = '';
+            $aperturaTabla = '';
 
-            $meses = [
-                1 => 'ENERO', 2 => 'FEBRERO', 3 => 'MARZO',
-                4 => 'ABRIL', 5 => 'MAYO', 6 => 'JUNIO',
-                7 => 'JULIO', 8 => 'AGOSTO', 9 => 'SEPTIEMBRE',
-                10 => 'OCTUBRE', 11 => 'NOVIEMBRE', 12 => 'DICIEMBRE'
-            ];
+            if ($request->fecha_apertura) {
+                $fA = Carbon::parse($request->fecha_apertura);
 
-            $aperturaTexto = "EL DÍA {$fA->day} DE {$meses[$fA->month]} DE {$fA->year}, A LAS $horaApertura";
-            $aperturaTabla = "{$fA->day}-{$meses[$fA->month]}-{$fA->year}";
+                $aperturaTexto = "{$fA->day} de {$meses[$fA->month]} de {$fA->year}, a las $horaApertura";
+                $aperturaTabla = "{$fA->day}-{$meses[$fA->month]}-{$fA->year}";
+            }
 
-            // =========================
             // FALLO
-            // =========================
-            $fF = \Carbon\Carbon::parse($request->fecha_fallo);
+            $falloTexto = '';
+            $falloTabla = '';
 
-            $falloTexto = "EL DÍA {$fF->day} DE {$meses[$fF->month]} DE {$fF->year}, A LAS $horaFallo";
-            $falloTabla = "{$fF->day}-{$meses[$fF->month]}-{$fF->year}";
+            if ($request->fecha_fallo) {
+                $fF = Carbon::parse($request->fecha_fallo);
 
-            // =========================
-            // ENVIAR A WORD
-            // =========================
+                $falloTexto = "{$fF->day} de {$meses[$fF->month]} de {$fF->year}, a las $horaFallo";
+                $falloTabla = "{$fF->day}-{$meses[$fF->month]}-{$fF->year}";
+            }
+
+            // VIGENCIA
+            $vigenciaTexto = '';
+
+            if ($request->fecha_inicio_contrato && $request->fecha_fin_contrato) {
+
+                $inicio = Carbon::parse($request->fecha_inicio_contrato);
+                $fin    = Carbon::parse($request->fecha_fin_contrato);
+
+                $vigenciaTexto = "{$inicio->day} de {$meses[$inicio->month]} del {$inicio->year} y hasta el {$fin->day} de {$meses[$fin->month]} del {$fin->year}";
+            }
+
+            // REEMPLAZOS
+            $templateProcessor->setValue('nombre_procedimiento', $request->nombre_procedimiento);
+            $templateProcessor->setValue('num_procedimiento', $request->num_procedimiento);
+            $templateProcessor->setValue('fecha_publicacion', $request->fecha_publicacion);
+
+            $templateProcessor->setValue('fecha_vm', $textoVM);
+
             $templateProcessor->setValue('acl_texto', $aclTexto);
             $templateProcessor->setValue('acl_tabla', $aclTabla);
 
             $templateProcessor->setValue('apertura_texto', $aperturaTexto);
             $templateProcessor->setValue('apertura_tabla', $aperturaTabla);
-            $templateProcessor->setValue('hora_apertura', $horaApertura);
 
             $templateProcessor->setValue('fallo_texto', $falloTexto);
             $templateProcessor->setValue('fallo_tabla', $falloTabla);
+
+            $templateProcessor->setValue('hora_apertura', $horaApertura);
             $templateProcessor->setValue('hora_fallo', $horaFallo);
 
-            // =========================
-            // PERSONAS
-            // =========================
-            $templateProcessor->setValue('resp_tecnico', $request->resp_tecnico);
-            $templateProcessor->setValue('cargo_tecnico', $request->cargo_tecnico);
+            $templateProcessor->setValue('resp_tecnico', $persona ? $persona->nombre : '');
+            $templateProcessor->setValue('cargo_tecnico', $persona ? $persona->cargo : '');
 
-            // =========================
-            // MONTOS
-            // =========================
             $templateProcessor->setValue('monto_maximo', $this->formatearMonto($request->monto_maximo));
             $templateProcessor->setValue('monto_minimo', $this->formatearMonto($request->monto_minimo));
 
-            // =========================
-            // OTROS
-            // =========================
             $templateProcessor->setValue('num_partida', $request->num_partida);
             $templateProcessor->setValue('partida_nombre', $request->partida_nombre);
             $templateProcessor->setValue('num_requisicion', $request->num_requisicion);
-            $templateProcessor->setValue('plazo_contrato', $request->plazo_contrato);
 
-            // =========================
-            // GUARDAR
-            // =========================
+            $templateProcessor->setValue('vigencia_contrato', $vigenciaTexto);
+
+            // GUARDAR DOC
             $outputDir = storage_path('app/public/documentos');
 
             if (!file_exists($outputDir)) {
@@ -198,7 +196,7 @@ class ProcedimientoController extends Controller
             }
 
             $outputName = 'procedimiento_' . $procedimiento->id . '.docx';
-            $outputPath = $outputDir . DIRECTORY_SEPARATOR . $outputName;
+            $outputPath = $outputDir . '/' . $outputName;
 
             $templateProcessor->saveAs($outputPath);
 
@@ -221,8 +219,6 @@ class ProcedimientoController extends Controller
     public function descargar($id)
     {
         $procedimiento = Procedimiento::findOrFail($id);
-        $path = storage_path('app/public/' . $procedimiento->ruta_documento);
-
-        return response()->download($path);
+        return response()->download(storage_path('app/public/' . $procedimiento->ruta_documento));
     }
 }
