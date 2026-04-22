@@ -31,7 +31,7 @@
                     </li>
                 </li>
                 <li>
-                    <a href="#">
+                    <a href="{{ route('publicacion.index') }}">
                         <i data-feather="upload"></i>
                         Publicación
                     </a>
@@ -43,7 +43,7 @@
                     </a>
                 </li>
                 <li>
-                    <a href="#">
+                    <a href="{{ route('adjudicacion.index') }}">
                         <i data-feather="award"></i>
                         Adjudicación
                     </a>

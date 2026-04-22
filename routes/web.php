@@ -7,6 +7,8 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\PersonaController;
 use App\Http\Controllers\ProcedimientoController;
 use App\Http\Controllers\RevisionController;
+use App\Http\Controllers\PublicacionController;
+use App\Http\Controllers\AdjudicacionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -48,6 +50,13 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/revision', [RevisionController::class, 'index'])->name('revision.form');
         Route::post('/revision', [RevisionController::class, 'generar'])->name('revision.generar');
+
+        Route::get('/publicacion', [PublicacionController::class, 'index'])->name('publicacion.index');
+        Route::post('/publicacion/generar', [PublicacionController::class, 'generar'])->name('publicacion.generar');
+
+        Route::get('/adjudicacion', [AdjudicacionController::class, 'index'])->name('adjudicacion.index');
+        Route::post('/adjudicacion/generar', [AdjudicacionController::class, 'generar'])->name('adjudicacion.generar');
+
 
     });
 

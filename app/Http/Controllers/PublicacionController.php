@@ -9,12 +9,12 @@ use PhpOffice\PhpWord\TemplateProcessor;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
-class RevisionController extends Controller
+class PublicacionController extends Controller
 {
     public function index()
     {
         $personas = Persona::orderBy('nombre')->get();
-        return view('comprador.revision.revision', compact('personas'));
+        return view('comprador.publicacion.publicacion', compact('personas'));
     }
 
     public function generar(Request $request)
@@ -22,7 +22,6 @@ class RevisionController extends Controller
         $request->validate([
             'numero_referencia' => 'required',
             'fecha_oficio'      => 'required|date',
-            'fecha_publicacion' => 'nullable|date',
             'numero_busqueda'   => 'required',
             'reviso_id'         => 'nullable|exists:personas,id',
             'archivo_word'      => 'required|file|mimes:docx'
@@ -53,12 +52,12 @@ class RevisionController extends Controller
             ->locale('es')
             ->translatedFormat('d \d\e F \d\e Y');
 
-        // 📅 FECHA PUBLICACIÓN → 20 de abril del presente.
+        // 📅 FECHA PUBLICACIÓN (DESDE BD) → 23 de abril
         $fechaPublicacion = '';
-        if ($request->filled('fecha_publicacion')) {
-            $fechaPublicacion = Carbon::parse($request->fecha_publicacion)
+        if ($procedimiento->fecha_publicacion) {
+            $fechaPublicacion = Carbon::parse($procedimiento->fecha_publicacion)
                 ->locale('es')
-                ->translatedFormat('d \d\e F') . ' del presente.';
+                ->translatedFormat('d \d\e F');
         }
 
         // =========================
@@ -94,9 +93,6 @@ class RevisionController extends Controller
             $templateProcessor->setValue('num_procedimiento', $procedimiento->num_procedimiento);
             $templateProcessor->setValue('nombre_procedimiento', $procedimiento->nombre_procedimiento);
 
-            $tipo = optional($procedimiento->tipo)->nombre_tipo ?? '';
-            $templateProcessor->setValue('tipo_procedimiento', $tipo);
-
             // =========================
             // PERSONAS
             // =========================
@@ -112,7 +108,7 @@ class RevisionController extends Controller
                 mkdir($outputDir, 0777, true);
             }
 
-            $outputName = 'revision_' . time() . '.docx';
+            $outputName = 'publicacion_' . time() . '.docx';
             $outputPath = $outputDir . '/' . $outputName;
 
             $templateProcessor->saveAs($outputPath);

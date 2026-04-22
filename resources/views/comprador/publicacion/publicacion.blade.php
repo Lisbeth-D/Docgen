@@ -10,9 +10,9 @@
 
     <div class="conv-wrapper">
 
-        <h2 class="conv-title">Formulario de Revisión</h2>
+        <h2 class="conv-title">Formulario de Publicación</h2>
 
-        <form action="{{ route('revision.generar') }}" method="POST" enctype="multipart/form-data" class="conv-form">
+        <form action="{{ route('publicacion.generar') }}" method="POST" enctype="multipart/form-data" class="conv-form">
             @csrf
 
             <!-- WORD -->
@@ -27,21 +27,23 @@
 
             <!-- DATOS -->
             <div class="conv-card">
-                <h3>Datos de revisión</h3>
+                <h3>Datos de publicación</h3>
 
                 <div class="conv-grid">
 
+                    <!-- REFERENCIA -->
                     <div class="conv-group">
                         <label>Número de referencia</label>
                         <input type="text" name="numero_referencia">
                     </div>
 
+                    <!-- FECHA OFICIO -->
                     <div class="conv-group">
                         <label>Fecha oficio</label>
                         <input type="date" name="fecha_oficio">
                     </div>
 
-                    <!-- BUSCADOR -->
+                    <!-- BUSCAR PROCEDIMIENTO -->
                     <div class="conv-group">
                         <label>Buscar procedimiento</label>
                         <input type="text" id="busqueda_proc" name="numero_busqueda">
@@ -58,14 +60,10 @@
                         <input type="text" id="nombre_procedimiento" readonly>
                     </div>
 
-                    <div class="conv-group">
-                        <label>Tipo procedimiento</label>
-                        <input type="text" id="tipo_procedimiento" readonly>
-                    </div>
-
+                    <!-- FECHA PUBLICACIÓN (AUTO DESDE BD) -->
                     <div class="conv-group">
                         <label>Fecha de publicación</label>
-                        <input type="date" name="fecha_publicacion">
+                        <input type="date" id="fecha_publicacion" name="fecha_publicacion" readonly>
                     </div>
 
                     <!-- REVISO -->
@@ -117,11 +115,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (data) {
                         document.getElementById('num_procedimiento').value = data.num_procedimiento;
                         document.getElementById('nombre_procedimiento').value = data.nombre_procedimiento;
-                        document.getElementById('tipo_procedimiento').value = data.tipo;
+
+                        // 🔥 FECHA DESDE BD
+                        document.getElementById('fecha_publicacion').value = data.fecha_publicacion;
+
                     } else {
                         document.getElementById('num_procedimiento').value = '';
                         document.getElementById('nombre_procedimiento').value = '';
-                        document.getElementById('tipo_procedimiento').value = '';
+                        document.getElementById('fecha_publicacion').value = '';
                     }
 
                 });
