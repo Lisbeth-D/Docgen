@@ -9,6 +9,8 @@ use App\Http\Controllers\ProcedimientoController;
 use App\Http\Controllers\RevisionController;
 use App\Http\Controllers\PublicacionController;
 use App\Http\Controllers\AdjudicacionController;
+use App\Http\Controllers\DesignacionController;
+use App\Http\Controllers\AcPreguntaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -57,6 +59,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/adjudicacion', [AdjudicacionController::class, 'index'])->name('adjudicacion.index');
         Route::post('/adjudicacion/generar', [AdjudicacionController::class, 'generar'])->name('adjudicacion.generar');
 
+         Route::get('/designacion', [DesignacionController::class, 'index'])->name('designacion.index');
+        Route::post('/designacion/generar', [DesignacionController::class, 'generar'])->name('designacion.generar');
+
+        Route::get('/ac-pregunta', [AcPreguntaController::class, 'index'])->name('ac.index');
+        Route::post('/ac-pregunta/generar', [AcPreguntaController::class, 'generar'])->name('ac.generar');
+        Route::get('/buscar-procedimiento-ac/{valor}', [AcPreguntaController::class, 'buscarProcedimiento']);
 
     });
 

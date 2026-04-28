@@ -37,8 +37,8 @@
                     </a>
                 </li>
                 <li>
-                    <a href="#">
-                        <i data-feather="user-check"></i>
+                    <a href="{{ route('designacion.index') }}">
+                        <i data-feather="award"></i>
                         Designación
                     </a>
                 </li>
@@ -71,15 +71,21 @@
 
                     <ul class="submenu nested" id="siAplicaSubmenu">
                         <li>
-                            <a href="#">
+                            <a href="{{ route('ac.index') }}">
                                 <i data-feather="file-text"></i>
-                                Acta
+                                Acta preguntas
                             </a>
                         </li>
                         <li>
                             <a href="#">
-                                <i data-feather="users"></i>
-                                Lista Asistencia
+                                <i data-feather="file-tex"></i>
+                                Acta de Cierre
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#">
+                                <i data-feather="file-tex"></i>
+                                Acta 
                             </a>
                         </li>
                     </ul>

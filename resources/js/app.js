@@ -35,3 +35,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
 });
+
+document.getElementById('num_participantes').addEventListener('change', function () {
+
+    let container = document.getElementById('participantes_container');
+    container.innerHTML = '';
+
+    for (let i = 0; i < this.value; i++) {
+
+        container.innerHTML += `
+            <div class="conv-group">
+                <input type="text" name="participantes[${i}][nombre]" placeholder="Empresa ${i+1}" required>
+
+                <select name="participantes[${i}][pregunta]">
+                    <option value="SI">Sí presentó</option>
+                    <option value="NO">No presentó</option>
+                </select>
+            </div>
+        `;
+    }
+});
