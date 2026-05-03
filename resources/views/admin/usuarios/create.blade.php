@@ -79,6 +79,11 @@ required>
 
 </div>
 
+<div class="form-group">
+    <label>Cargo</label>
+    <input type="text" name="cargo" placeholder="Ej. Comprador Senior">
+</div>
+
 
 <div class="form-actions">
 

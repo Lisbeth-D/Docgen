@@ -9,6 +9,15 @@ class Persona extends Model
     protected $fillable = [
         'nombre',
         'cargo',
-        'area'
+        'area_id',
+        'plantilla_referencia', 
     ];
+
+    /**
+     * Relación con área
+     */
+    public function area()
+    {
+        return $this->belongsTo(Area::class);
+    }
 }

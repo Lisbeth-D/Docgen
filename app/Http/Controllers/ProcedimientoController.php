@@ -67,6 +67,7 @@ class ProcedimientoController extends Controller
             'fecha_fallo'           => $request->fecha_fallo,
             'hora_fallo'            => $request->hora_fallo,
 
+            // 🔥 NUEVOS CAMPOS CORRECTOS
             'fecha_inicio_contrato' => $request->fecha_inicio_contrato,
             'fecha_fin_contrato'    => $request->fecha_fin_contrato,
 
@@ -116,7 +117,6 @@ class ProcedimientoController extends Controller
             // ACL
             if ($request->aplica_acl == 'SI' && $request->fecha_acl && $request->hora_acl) {
                 $f = Carbon::parse($request->fecha_acl);
-
                 $aclTexto = "{$f->day} de {$meses[$f->month]} de {$f->year}, a las $horaACL";
                 $aclTabla = "{$f->day}-{$meses[$f->month]}-{$f->year}";
             } else {
@@ -125,45 +125,41 @@ class ProcedimientoController extends Controller
             }
 
             // APERTURA
-            $aperturaTexto = '';
-            $aperturaTabla = '';
-
             if ($request->fecha_apertura) {
                 $fA = Carbon::parse($request->fecha_apertura);
-
                 $aperturaTexto = "{$fA->day} de {$meses[$fA->month]} de {$fA->year}, a las $horaApertura";
                 $aperturaTabla = "{$fA->day}-{$meses[$fA->month]}-{$fA->year}";
+            } else {
+                $aperturaTexto = '';
+                $aperturaTabla = '';
             }
 
             // FALLO
-            $falloTexto = '';
-            $falloTabla = '';
-
             if ($request->fecha_fallo) {
                 $fF = Carbon::parse($request->fecha_fallo);
-
                 $falloTexto = "{$fF->day} de {$meses[$fF->month]} de {$fF->year}, a las $horaFallo";
                 $falloTabla = "{$fF->day}-{$meses[$fF->month]}-{$fF->year}";
+            } else {
+                $falloTexto = '';
+                $falloTabla = '';
             }
 
-            // VIGENCIA
+            // VIGENCIA (AHORA CORRECTO)
             $vigenciaTexto = '';
 
             if ($request->fecha_inicio_contrato && $request->fecha_fin_contrato) {
-
                 $inicio = Carbon::parse($request->fecha_inicio_contrato);
                 $fin    = Carbon::parse($request->fecha_fin_contrato);
 
                 $vigenciaTexto = "{$inicio->day} de {$meses[$inicio->month]} del {$inicio->year} y hasta el {$fin->day} de {$meses[$fin->month]} del {$fin->year}";
             }
 
-            // REEMPLAZOS
+            // WORD REPLACEMENTS
             $templateProcessor->setValue('nombre_procedimiento', $request->nombre_procedimiento);
             $templateProcessor->setValue('num_procedimiento', $request->num_procedimiento);
             $templateProcessor->setValue('fecha_publicacion', $request->fecha_publicacion);
 
             $templateProcessor->setValue('fecha_vm', $textoVM);
-
             $templateProcessor->setValue('acl_texto', $aclTexto);
             $templateProcessor->setValue('acl_tabla', $aclTabla);
 

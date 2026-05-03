@@ -40,6 +40,11 @@
 </select>
 </div>
 
+<div class="form-group">
+    <label>Cargo</label>
+    <input type="text" name="cargo" value="{{ $user->cargo }}" placeholder="Ej. Comprador Senior">
+</div>
+
 <div class="form-actions">
 <button class="btn-primary">Actualizar</button>
 <a href="/usuarios" class="btn-cancel">Cancelar</a>

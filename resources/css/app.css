@@ -863,3 +863,116 @@ z-index:999;
 .admin-sidebar.collapsed span {
     display: none;
 }
+.area-section {
+    margin-bottom: 30px;
+}
+
+.area-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: #f5f7fa;
+    border-left: 4px solid #4f46e5;
+}
+
+.custom-pagination {
+    display: flex;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.pagination {
+    display: flex;
+    gap: 6px;
+}
+
+.pagination li {
+    list-style: none;
+}
+
+.pagination li a,
+.pagination li span {
+    padding: 6px 10px;
+    font-size: 13px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    color: #555;
+    text-decoration: none;
+}
+
+.pagination li.active span {
+    background: #6f42c1; /* morado elegante */
+    color: #fff;
+    border: none;
+}
+
+.pagination li a:hover {
+    background: #f2f2f2;
+}
+
+.pagination li.disabled span {
+    color: #aaa;
+}
+
+
+/* =========================
+   FIX REAL FORMULARIO CONVOCATORIA
+========================= */
+
+/* 🔥 evita que admin-content fuerce centrado raro */
+.admin-content{
+    align-items: flex-start !important;
+}
+
+/* 🔥 contenedor real del formulario */
+.conv-wrapper{
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+/* 🔥 tarjetas controladas */
+.conv-card{
+    background: #fff;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+
+    /* CLAVE */
+    width: 100%;
+}
+
+/* 🔥 evita grids infinitos */
+.conv-grid{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+/* 🔥 inputs no se salen */
+.conv-group input,
+.conv-group select,
+.conv-group textarea{
+    width: 100%;
+    max-width: 100%;
+}
+
+/* 🔥 título bonito sin romper ancho */
+.conv-title{
+    margin-bottom: 20px;
+    font-size: 22px;
+    font-weight: 600;
+}
+
+/* 🔥 botón bien alineado */
+.conv-btn{
+    display: inline-block;
+    background: #7A1623;
+    color: white;
+    padding: 10px 18px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+}

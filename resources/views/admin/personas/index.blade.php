@@ -15,22 +15,29 @@
     <div class="card-header modern-header">
         <div>
             <h2>Gestión de personas</h2>
-            <p class="subtitle">Administra las personas disponibles en el sistema</p>
+            <p class="subtitle">Filtrar personas por área</p>
         </div>
 
         <a href="/personas/crear" class="btn-table">
-        + Nueva persona
+            + Nueva persona
         </a>
     </div>
 
-    {{-- BUSCADOR --}}
-    <form method="GET" action="/personas" class="search-box modern-search">
-        <input 
-            type="text" 
-            name="buscar" 
-            placeholder="Buscar por nombre, cargo o área..." 
-            value="{{ $buscar }}">
-        <button type="submit">Buscar</button>
+    {{-- FILTRO POR ÁREA --}}
+    <form method="GET" action="/personas" style="margin-bottom: 20px;">
+        
+        <select name="area_id" onchange="this.form.submit()" class="form-control">
+            <option value="">-- Todas las áreas --</option>
+
+            @foreach($areas as $area)
+                <option value="{{ $area->id }}"
+                    {{ $area_id == $area->id ? 'selected' : '' }}>
+                    {{ $area->nombre }}
+                </option>
+            @endforeach
+
+        </select>
+
     </form>
 
     {{-- TABLA --}}
@@ -44,6 +51,7 @@
                     <th>Nombre</th>
                     <th>Cargo</th>
                     <th>Área</th>
+                    <th>Plantilla Referencia</th>
                     <th class="text-center">Acciones</th>
                 </tr>
             </thead>
@@ -54,23 +62,41 @@
 
                 <tr>
                     <td>{{ $persona->id }}</td>
-                    <td class="bold">{{ $persona->nombre }}</td>
-                    <td>{{ $persona->cargo }}</td>
-                    <td>{{ $persona->area }}</td>
+
+                    <td class="bold">
+                        {{ $persona->nombre }}
+                    </td>
+
+                    <td>
+                        {{ $persona->cargo }}
+                    </td>
+
+                    <td>
+                        {{ $persona->area->nombre ?? '-' }}
+                    </td>
+
+                    {{-- 🔥 PLANTILLA (NUEVO SISTEMA) --}}
+                    <td>
+                        {{ $persona->plantilla_referencia ?? 'Sin plantilla' }}
+                    </td>
 
                     <td class="actions">
 
+                        {{-- EDITAR --}}
                         <a href="/personas/{{ $persona->id }}/editar" class="btn-edit">
-                        Editar
+                            Editar
                         </a>
 
+                        {{-- ELIMINAR --}}
                         <form action="/personas/{{ $persona->id }}" method="POST"
-                        onsubmit="return confirm('¿Eliminar persona?')">
+                            onsubmit="return confirm('¿Eliminar persona?')">
 
-                        @csrf
-                        @method('DELETE')
+                            @csrf
+                            @method('DELETE')
 
-                        <button class="btn-delete">Eliminar</button>
+                            <button class="btn-delete">
+                                Eliminar
+                            </button>
 
                         </form>
 
@@ -80,8 +106,8 @@
             @empty
 
                 <tr>
-                    <td colspan="5" class="empty">
-                        No hay registros disponibles
+                    <td colspan="6" class="empty">
+                        No hay registros
                     </td>
                 </tr>
 
@@ -94,9 +120,14 @@
     </div>
 
     {{-- PAGINACIÓN --}}
-    <div class="pagination-box modern-pagination">
-        {{ $personas->links() }}
+    <div class="pagination-modern">
+        {{ $personas->onEachSide(1)->links('vendor.pagination.simple-numbers') }}
     </div>
 
 </div>
+
+</div>
+
+</div>
+
 @endsection

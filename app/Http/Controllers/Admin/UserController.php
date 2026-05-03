@@ -39,19 +39,19 @@ class UserController extends Controller
     'username'=>'required|unique:users',
     'email'=>'required|email|unique:users',
     'password'=>'required|min:6',
-    'role'=>'required'
+    'role'=>'required',
+    'cargo' => 'nullable|string|max:255'
 
     ]);
 
 
     User::create([
-
-    'name'=>$request->name,
-    'username'=>$request->username,
-    'email'=>$request->email,
-    'password'=>Hash::make($request->password),
-    'role'=>$request->role
-
+        'name' => $request->name,
+        'username' => $request->username,
+        'email' => $request->email,
+        'password' => Hash::make($request->password),
+        'role' => $request->role,
+        'cargo' => $request->cargo
     ]);
 
 
@@ -128,11 +128,12 @@ class UserController extends Controller
     $user = User::findOrFail($id);
 
     $user->update([
-        'name' => $request->name,
-        'username' => $request->username,
-        'email' => $request->email,
-        'role' => $request->role
-    ]);
+    'name' => $request->name,
+    'username' => $request->username,
+    'email' => $request->email,
+    'role' => $request->role,
+    'cargo' => $request->cargo
+]);
 
     return redirect('/usuarios')->with('success','Usuario actualizado');
     }

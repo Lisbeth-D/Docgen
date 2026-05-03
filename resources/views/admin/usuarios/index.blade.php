@@ -52,6 +52,7 @@ value="{{ $buscar }}"
 <th>Usuario</th>
 <th>Email</th>
 <th>Rol</th>
+<th>Cargo</th>
 <th>Acciones</th>
 </tr>
 </thead>
@@ -71,6 +72,10 @@ value="{{ $buscar }}"
 <span class="role-badge">
 {{ $user->role }}
 </span>
+</td>
+
+<td>
+{{ $user->cargo ?? 'Sin cargo' }}
 </td>
 
 <td class="actions">
