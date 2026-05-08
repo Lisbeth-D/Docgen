@@ -14,7 +14,7 @@
             <form action="{{ route('ac.generar') }}" method="POST" enctype="multipart/form-data">
                 @csrf
 
-                <!-- 🔥 ARCHIVO WORD (ARRIBA) -->
+                <!-- ARCHIVO WORD (ARRIBA) -->
                 <div class="conv-card">
                     <h3>Plantilla Word</h3>
 

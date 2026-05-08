@@ -11,6 +11,8 @@ use App\Http\Controllers\PublicacionController;
 use App\Http\Controllers\AdjudicacionController;
 use App\Http\Controllers\DesignacionController;
 use App\Http\Controllers\AcPreguntaController;
+use App\Http\Controllers\AclaracionController;
+use App\Http\Controllers\ActaCierreController;
 
 /*
 |--------------------------------------------------------------------------
@@ -66,6 +68,13 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/ac-pregunta/generar', [AcPreguntaController::class, 'generar'])->name('ac.generar');
         Route::get('/buscar-procedimiento-ac/{valor}', [AcPreguntaController::class, 'buscarProcedimiento']);
 
+        Route::get('/acta', [AclaracionController::class, 'index'])->name('acta.index');
+        Route::post('/acta/generar', [AclaracionController::class, 'generar'])->name('acta.generar');
+        Route::get('/buscar-procedimiento-acta/{valor}', [AclaracionController::class, 'buscarProcedimiento']);
+
+        Route::get('/acta-cierre',[ActaCierreController::class, 'index'])->name('actacierre.index');
+        Route::post('/acta-cierre/generar',[ActaCierreController::class, 'generar'])->name('actacierre.generar');
+        Route::get('/buscar-procedimiento-actacierre/{valor}',[ActaCierreController::class, 'buscarProcedimiento']);
     });
 
     /*
