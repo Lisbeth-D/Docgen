@@ -1,0 +1,126 @@
+/* =========================
+   CARD CONTENEDOR
+========================= */
+
+.card-procedimientos{
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 30px;
+    margin-top: 30px;
+    box-shadow: 0px 4px 15px rgba(0,0,0,0.08);
+}
+
+
+/* =========================
+   TITULO
+========================= */
+
+.titulo-procedimientos{
+    font-size: 32px;
+    font-weight: bold;
+    color: #5b1736;
+    margin-bottom: 25px;
+}
+
+
+/* =========================
+   TABLA
+========================= */
+
+.tabla-procedimientos{
+    width: 100%;
+    border-collapse: collapse;
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+
+/* =========================
+   HEADER TABLA
+========================= */
+
+.tabla-procedimientos thead{
+    background: #7b1e4a;
+    color: white;
+}
+
+.tabla-procedimientos thead th{
+    padding: 18px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+
+/* =========================
+   BODY TABLA
+========================= */
+
+.tabla-procedimientos tbody tr{
+    border-bottom: 1px solid #ececec;
+    transition: 0.2s;
+}
+
+.tabla-procedimientos tbody tr:hover{
+    background: #f8f8f8;
+}
+
+.tabla-procedimientos tbody td{
+    padding: 20px;
+    text-align: center;
+    font-size: 14px;
+    vertical-align: middle;
+    color: #333;
+}
+
+
+/* =========================
+   MONTO
+========================= */
+
+.monto{
+    font-weight: bold;
+    color: #7b1e4a;
+    font-size: 16px;
+}
+
+
+/* =========================
+   VIGENCIA
+========================= */
+
+.badge-vigencia{
+    background: #f4f4f4;
+    padding: 10px 15px;
+    border-radius: 10px;
+    display: inline-block;
+    font-size: 13px;
+}
+
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media(max-width: 768px){
+
+    .tabla-procedimientos{
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .titulo-procedimientos{
+        font-size: 24px;
+    }
+
+}
+.main-procedimientos{
+    display: flex;
+    align-items: flex-start;
+}
+
+.contenido-procedimientos{
+    flex: 1;
+    padding: 30px;
+}

@@ -4,6 +4,33 @@
 
 @section('content')
 
+{{-- ALERTA SOLO SI FALLA LOGIN --}}
+@if($errors->any())
+
+<div class="security-banner">
+
+    <div class="security-banner-icon">
+        🛡️
+    </div>
+
+    <div class="security-banner-text">
+
+        <h3>ACCESO RESTRINGIDO</h3>
+
+        <p>
+            Sistema institucional de uso exclusivo para personal autorizado.
+        </p>
+
+        <div class="security-error">
+            {{ $errors->first() }}
+        </div>
+
+    </div>
+
+</div>
+
+@endif
+
 <div class="auth-card">
 
     <h2>Inicio de Sesión</h2>
@@ -41,7 +68,6 @@
             <a href="{{ route('password.request') }}">
                 ¿Olvidaste tu contraseña?
             </a>
-
         </div>
 
     </form>

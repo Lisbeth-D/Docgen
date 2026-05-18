@@ -75,7 +75,7 @@
                         {{ $persona->area->nombre ?? '-' }}
                     </td>
 
-                    {{-- 🔥 PLANTILLA (NUEVO SISTEMA) --}}
+                    {{--  PLANTILLA (NUEVO SISTEMA) --}}
                     <td>
                         {{ $persona->plantilla_referencia ?? 'Sin plantilla' }}
                     </td>

@@ -41,18 +41,28 @@ class ProcedimientoController extends Controller
         $request->validate([
             'nombre_procedimiento' => 'required',
             'num_procedimiento'    => 'required',
-            'archivo_word'         => 'required|file|mimes:docx'
+            'archivo_word'         => 'required|file|mimes:docx',
+            'monto_maximo'         => 'required'
         ]);
 
         $persona = Persona::find($request->resp_tecnico);
 
         // =========================
+        // LIMPIAR MONTO PARA MYSQL
+        // =========================
+        $montoMaximo = floatval(
+            str_replace(',', '', $request->monto_maximo)
+        );
+
+        // =========================
         // GUARDAR EN BD
         // =========================
         $procedimiento = Procedimiento::create([
+
             'id_tipo_procedimiento' => $request->id_tipo_procedimiento,
             'nombre_procedimiento'  => $request->nombre_procedimiento,
             'num_procedimiento'     => $request->num_procedimiento,
+
             'fecha_publicacion'     => $request->fecha_publicacion,
 
             'fecha_vm'              => $request->fecha_vm,
@@ -67,9 +77,11 @@ class ProcedimientoController extends Controller
             'fecha_fallo'           => $request->fecha_fallo,
             'hora_fallo'            => $request->hora_fallo,
 
-            // 🔥 NUEVOS CAMPOS CORRECTOS
             'fecha_inicio_contrato' => $request->fecha_inicio_contrato,
             'fecha_fin_contrato'    => $request->fecha_fin_contrato,
+
+            // CORREGIDO
+            'monto_maximo'          => $montoMaximo,
 
             'user_id'               => Auth::id(),
             'id_persona'            => $persona ? $persona->id : null,
@@ -93,73 +105,153 @@ class ProcedimientoController extends Controller
 
             $templateProcessor = new TemplateProcessor($templateDir . '/' . $filename);
 
+            // =========================
             // HORAS
-            $horaVM       = $request->hora_vm ? strtoupper($request->hora_vm . ' HORAS') : '';
-            $horaACL      = $request->hora_acl ? strtoupper($request->hora_acl . ' HORAS') : '';
-            $horaApertura = $request->hora_apertura ? strtoupper($request->hora_apertura . ' HORAS') : '';
-            $horaFallo    = $request->hora_fallo ? strtoupper($request->hora_fallo . ' HORAS') : '';
+            // =========================
+            $horaVM       = $request->hora_vm
+                ? strtoupper($request->hora_vm . ' HORAS')
+                : '';
 
+            $horaACL      = $request->hora_acl
+                ? strtoupper($request->hora_acl . ' HORAS')
+                : '';
+
+            $horaApertura = $request->hora_apertura
+                ? strtoupper($request->hora_apertura . ' HORAS')
+                : '';
+
+            $horaFallo    = $request->hora_fallo
+                ? strtoupper($request->hora_fallo . ' HORAS')
+                : '';
+
+            // =========================
             // MESES
+            // =========================
             $meses = [
-                1=>'ENERO',2=>'FEBRERO',3=>'MARZO',4=>'ABRIL',
-                5=>'MAYO',6=>'JUNIO',7=>'JULIO',8=>'AGOSTO',
-                9=>'SEPTIEMBRE',10=>'OCTUBRE',11=>'NOVIEMBRE',12=>'DICIEMBRE'
+                1  => 'ENERO',
+                2  => 'FEBRERO',
+                3  => 'MARZO',
+                4  => 'ABRIL',
+                5  => 'MAYO',
+                6  => 'JUNIO',
+                7  => 'JULIO',
+                8  => 'AGOSTO',
+                9  => 'SEPTIEMBRE',
+                10 => 'OCTUBRE',
+                11 => 'NOVIEMBRE',
+                12 => 'DICIEMBRE'
             ];
 
-            // VM
-            if ($request->aplica_vm == 'SI' && $request->fecha_vm && $request->hora_vm) {
+            // =========================
+            // VISITA A INSTALACIONES
+            // =========================
+            if (
+                $request->aplica_vm == 'SI' &&
+                $request->fecha_vm &&
+                $request->hora_vm
+            ) {
+
                 $f = Carbon::parse($request->fecha_vm);
+
                 $textoVM = "{$f->day} de {$meses[$f->month]} de {$f->year} a las $horaVM";
+
             } else {
+
                 $textoVM = "NO APLICA";
             }
 
+            // =========================
             // ACL
-            if ($request->aplica_acl == 'SI' && $request->fecha_acl && $request->hora_acl) {
+            // =========================
+            if (
+                $request->aplica_acl == 'SI' &&
+                $request->fecha_acl &&
+                $request->hora_acl
+            ) {
+
                 $f = Carbon::parse($request->fecha_acl);
+
                 $aclTexto = "{$f->day} de {$meses[$f->month]} de {$f->year}, a las $horaACL";
+
                 $aclTabla = "{$f->day}-{$meses[$f->month]}-{$f->year}";
+
             } else {
+
                 $aclTexto = "NO APLICA";
                 $aclTabla = "NO APLICA";
             }
 
+            // =========================
             // APERTURA
+            // =========================
             if ($request->fecha_apertura) {
+
                 $fA = Carbon::parse($request->fecha_apertura);
+
                 $aperturaTexto = "{$fA->day} de {$meses[$fA->month]} de {$fA->year}, a las $horaApertura";
+
                 $aperturaTabla = "{$fA->day}-{$meses[$fA->month]}-{$fA->year}";
+
             } else {
+
                 $aperturaTexto = '';
                 $aperturaTabla = '';
             }
 
+            // =========================
             // FALLO
+            // =========================
             if ($request->fecha_fallo) {
+
                 $fF = Carbon::parse($request->fecha_fallo);
+
                 $falloTexto = "{$fF->day} de {$meses[$fF->month]} de {$fF->year}, a las $horaFallo";
+
                 $falloTabla = "{$fF->day}-{$meses[$fF->month]}-{$fF->year}";
+
             } else {
+
                 $falloTexto = '';
                 $falloTabla = '';
             }
 
-            // VIGENCIA (AHORA CORRECTO)
+            // =========================
+            // VIGENCIA
+            // =========================
             $vigenciaTexto = '';
 
-            if ($request->fecha_inicio_contrato && $request->fecha_fin_contrato) {
+            if (
+                $request->fecha_inicio_contrato &&
+                $request->fecha_fin_contrato
+            ) {
+
                 $inicio = Carbon::parse($request->fecha_inicio_contrato);
                 $fin    = Carbon::parse($request->fecha_fin_contrato);
 
-                $vigenciaTexto = "{$inicio->day} de {$meses[$inicio->month]} del {$inicio->year} y hasta el {$fin->day} de {$meses[$fin->month]} del {$fin->year}";
+                $vigenciaTexto =
+                    "{$inicio->day} de {$meses[$inicio->month]} del {$inicio->year} y hasta el {$fin->day} de {$meses[$fin->month]} del {$fin->year}";
             }
 
-            // WORD REPLACEMENTS
-            $templateProcessor->setValue('nombre_procedimiento', $request->nombre_procedimiento);
-            $templateProcessor->setValue('num_procedimiento', $request->num_procedimiento);
-            $templateProcessor->setValue('fecha_publicacion', $request->fecha_publicacion);
+            // =========================
+            // REEMPLAZOS WORD
+            // =========================
+            $templateProcessor->setValue(
+                'nombre_procedimiento',
+                $request->nombre_procedimiento
+            );
+
+            $templateProcessor->setValue(
+                'num_procedimiento',
+                $request->num_procedimiento
+            );
+
+            $templateProcessor->setValue(
+                'fecha_publicacion',
+                $request->fecha_publicacion
+            );
 
             $templateProcessor->setValue('fecha_vm', $textoVM);
+
             $templateProcessor->setValue('acl_texto', $aclTexto);
             $templateProcessor->setValue('acl_tabla', $aclTabla);
 
@@ -172,19 +264,50 @@ class ProcedimientoController extends Controller
             $templateProcessor->setValue('hora_apertura', $horaApertura);
             $templateProcessor->setValue('hora_fallo', $horaFallo);
 
-            $templateProcessor->setValue('resp_tecnico', $persona ? $persona->nombre : '');
-            $templateProcessor->setValue('cargo_tecnico', $persona ? $persona->cargo : '');
+            $templateProcessor->setValue(
+                'resp_tecnico',
+                $persona ? $persona->nombre : ''
+            );
 
-            $templateProcessor->setValue('monto_maximo', $this->formatearMonto($request->monto_maximo));
-            $templateProcessor->setValue('monto_minimo', $this->formatearMonto($request->monto_minimo));
+            $templateProcessor->setValue(
+                'cargo_tecnico',
+                $persona ? $persona->cargo : ''
+            );
 
-            $templateProcessor->setValue('num_partida', $request->num_partida);
-            $templateProcessor->setValue('partida_nombre', $request->partida_nombre);
-            $templateProcessor->setValue('num_requisicion', $request->num_requisicion);
+            // FORMATEADO SOLO PARA WORD
+            $templateProcessor->setValue(
+                'monto_maximo',
+                $this->formatearMonto($request->monto_maximo)
+            );
 
-            $templateProcessor->setValue('vigencia_contrato', $vigenciaTexto);
+            $templateProcessor->setValue(
+                'monto_minimo',
+                $this->formatearMonto($request->monto_minimo)
+            );
 
+            $templateProcessor->setValue(
+                'num_partida',
+                $request->num_partida
+            );
+
+            $templateProcessor->setValue(
+                'partida_nombre',
+                $request->partida_nombre
+            );
+
+            $templateProcessor->setValue(
+                'num_requisicion',
+                $request->num_requisicion
+            );
+
+            $templateProcessor->setValue(
+                'vigencia_contrato',
+                $vigenciaTexto
+            );
+
+            // =========================
             // GUARDAR DOC
+            // =========================
             $outputDir = storage_path('app/public/documentos');
 
             if (!file_exists($outputDir)) {
@@ -192,6 +315,7 @@ class ProcedimientoController extends Controller
             }
 
             $outputName = 'procedimiento_' . $procedimiento->id . '.docx';
+
             $outputPath = $outputDir . '/' . $outputName;
 
             $templateProcessor->saveAs($outputPath);
@@ -209,12 +333,29 @@ class ProcedimientoController extends Controller
     public function show($id)
     {
         $procedimiento = Procedimiento::findOrFail($id);
-        return view('comprador.convo.resultado', compact('procedimiento'));
+
+        return view(
+            'comprador.convo.resultado',
+            compact('procedimiento')
+        );
     }
 
     public function descargar($id)
     {
         $procedimiento = Procedimiento::findOrFail($id);
-        return response()->download(storage_path('app/public/' . $procedimiento->ruta_documento));
+
+        return response()->download(
+            storage_path('app/public/' . $procedimiento->ruta_documento)
+        );
+    }
+
+    public function procedi()
+    {
+        $procedimientos = Procedimiento::all();
+
+        return view(
+            'admin.procedimientos.procedi',
+            compact('procedimientos')
+        );
     }
 }

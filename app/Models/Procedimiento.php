@@ -11,6 +11,7 @@ class Procedimiento extends Model
     protected $fillable = [
         'nombre_procedimiento',
         'num_procedimiento',
+        'monto_maximo',
         'fecha_publicacion',
         'fecha_vm',
         'hora_vm',

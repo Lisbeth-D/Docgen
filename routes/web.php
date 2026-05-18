@@ -112,6 +112,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/personas/{id}', [PersonaController::class, 'update']);
     Route::post('/personas', [PersonaController::class, 'store']);
     Route::delete('/personas/{id}', [PersonaController::class, 'destroy']);
+    Route::get('/procedimientos', [ProcedimientoController::class, 'procedi']);
 
 
     });

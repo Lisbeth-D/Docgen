@@ -34,7 +34,7 @@
 <ul class="submenu" id="reportesSubmenu">
 
 <li>
-<a href="#">
+<a href="/procedimientos">
 <i data-feather="file-text"></i>
 Procedimientos
 </a>
