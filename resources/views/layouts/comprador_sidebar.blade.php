@@ -77,12 +77,6 @@
                                 </a>
                             </li>
 
-                            <li>
-                                <a href="#">
-                                    <i data-feather="users"></i>
-                                    Lista Asistencia
-                                </a>
-                            </li>
                         </ul>
                     </li>
 
@@ -113,15 +107,8 @@
 
             <li>
                 <a href="#">
-                    <i data-feather="file"></i>
-                    <span>Contratos</span>
-                </a>
-            </li>
-
-            <li>
-                <a href="#">
                     <i data-feather="edit-3"></i>
-                    <span>Generador de machote</span>
+                    <span>Manual de sistema</span>
                 </a>
             </li>
         </ul>
