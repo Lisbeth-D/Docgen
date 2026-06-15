@@ -28,6 +28,15 @@
     </div>
 
 </div>
+@endif
+
+@if(session('status'))
+
+<div class="alert alert-success text-center">
+
+    {{ session('status') }}
+
+</div>
 
 @endif
 
@@ -41,7 +50,13 @@
         {{-- USERNAME --}}
         <div class="form-group">
             <label for="username">Usuario</label>
-            <input type="text" name="username" required autofocus>
+            <input
+                type="text"
+                name="username"
+                value="{{ old('username') }}"
+                required
+                autofocus
+            >
         </div>
 
         {{-- PASSWORD --}}

@@ -16,7 +16,7 @@
         <img src="{{ asset('img/logo.png') }}" alt="Logo">
 
         @if(Auth::check())
-        <div class="top-user-fixed">
+        <div class="header-user">
             <div class="user-box" onclick="toggleUserMenu()">
                 👤 {{ Auth::user()->username }}
             </div>
@@ -61,11 +61,6 @@ function toggleSiAplica() {
     document.getElementById("siAplicaSubmenu").classList.toggle("open");
 }
 
-function toggleUserMenu() {
-    const menu = document.getElementById("userDropdown");
-    menu.classList.toggle("show");
-}
-
 function toggleConfig(){
 document.getElementById("configSubmenu").classList.toggle("open");
 }
@@ -74,8 +69,8 @@ function toggleReportes(){
 document.getElementById("reportesSubmenu").classList.toggle("open");
 }
 
-function toggleUserMenu(){
-document.getElementById("userDropdown").classList.toggle("show");
+function toggleUserMenu() {
+    document.getElementById("userDropdown").classList.toggle("show");
 }
 
 feather.replace();

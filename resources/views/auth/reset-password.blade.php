@@ -1,39 +1,83 @@
-<x-guest-layout>
-    <form method="POST" action="{{ route('password.store') }}">
-        @csrf
+@extends('layouts.auth')
 
-        <!-- Password Reset Token -->
-        <input type="hidden" name="token" value="{{ $request->route('token') }}">
+@section('title', 'Restablecer Contraseña')
 
-        <!-- Email Address -->
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email', $request->email)" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
-        </div>
+@section('content')
 
-        <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-            <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="new-password" />
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
-        </div>
+<div class="login-wrapper">
 
-        <!-- Confirm Password -->
-        <div class="mt-4">
-            <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
+    <div class="login-card">
 
-            <x-text-input id="password_confirmation" class="block mt-1 w-full"
-                                type="password"
-                                name="password_confirmation" required autocomplete="new-password" />
+        <h3 class="login-title">
+            Restablecer Contraseña
+        </h3>
 
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
-        </div>
+        <p style="font-size:14px; margin-bottom:20px;">
+            Ingresa tu nueva contraseña para recuperar el acceso al sistema.
+        </p>
 
-        <div class="flex items-center justify-end mt-4">
-            <x-primary-button>
-                {{ __('Reset Password') }}
-            </x-primary-button>
-        </div>
-    </form>
-</x-guest-layout>
+        {{-- ERRORES --}}
+        @if ($errors->any())
+            <div class="alert alert-danger text-center">
+                @foreach ($errors->all() as $error)
+                    <div>{{ $error }}</div>
+                @endforeach
+            </div>
+        @endif
+
+        <form method="POST" action="{{ route('password.store') }}">
+            @csrf
+
+            {{-- TOKEN --}}
+            <input type="hidden"
+                   name="token"
+                   value="{{ $request->route('token') }}">
+
+            {{-- CORREO --}}
+            <div class="form-group">
+                <label>Correo electrónico</label>
+
+                <input type="email"
+                       name="email"
+                       value="{{ old('email', $request->email) }}"
+                       required
+                       readonly>
+            </div>
+
+            {{-- NUEVA CONTRASEÑA --}}
+            <div class="form-group">
+                <label>Nueva contraseña</label>
+
+                <input type="password"
+                       name="password"
+                       required
+                       autocomplete="new-password">
+            </div>
+
+            {{-- CONFIRMAR CONTRASEÑA --}}
+            <div class="form-group">
+                <label>Confirmar contraseña</label>
+
+                <input type="password"
+                       name="password_confirmation"
+                       required
+                       autocomplete="new-password">
+            </div>
+
+            <button type="submit" class="login-btn">
+                Restablecer contraseña
+            </button>
+
+            <div class="extra-links">
+                <a href="{{ route('login') }}">
+                    Volver al inicio de sesión
+                </a>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+@endsection

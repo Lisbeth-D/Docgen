@@ -90,7 +90,6 @@ body {
     padding-top: 30px;
     display: flex;
     flex-direction: column;
-    transition: width 0.3s;
 }
 
 .admin-sidebar ul {
@@ -312,13 +311,32 @@ body {
    USER ENCIMA DEL HEADER
 ========================= */
 
-.top-user-fixed {
-    position: fixed;
-    top: 20px;
-    right: 40px;
-    z-index: 2000; /* mayor que el header */
+.header-user{
+    position: relative;
+    margin-left: auto;
 }
 
+.user-box{
+    cursor:pointer;
+    font-weight:500;
+}
+
+.user-dropdown{
+    position:absolute;
+    right:0;
+    top:35px;
+    background:white;
+    border-radius:6px;
+    box-shadow:0 5px 15px rgba(0,0,0,0.1);
+    display:none;
+    padding:10px;
+    min-width:150px;
+    z-index:1000;
+}
+
+.user-dropdown.show{
+    display:block;
+}
 /* =========================
    SUBMENU OFICIOS
 ========================= */
@@ -376,12 +394,15 @@ body {
 /* CONTENEDOR TARJETA */
 
 .card-container{
+    .card-container{
     background:white;
     padding:25px;
     border-radius:10px;
     box-shadow:0 4px 15px rgba(0,0,0,0.08);
-    max-width:900px;
+    max-width:1200px;
+    width:100%;
     margin:auto;
+}
 }
 
 /* HEADER */
@@ -567,8 +588,15 @@ color:black;
 }
 
 .actions{
-display:flex;
-gap:6px;
+    display:flex;
+    gap:10px; /* separación entre botones */
+    align-items:center;
+}
+.modern-table{
+    background:#fff;
+    border-radius:12px;
+    padding:10px;
+    overflow-x:auto;
 }
 
 .btn-edit{
@@ -625,28 +653,6 @@ margin-top:5px;
 color:#7A1623;
 font-size:30px;
 }
-
-.menu-toggle{
-
-position:fixed;
-top:90px;
-left:15px;
-
-background:#7A1623;
-color:white;
-
-font-size:22px;
-
-padding:8px 12px;
-
-border-radius:6px;
-
-cursor:pointer;
-
-z-index:999;
-
-}
-
     /*
     |--------------------------------------------------------------------------
     | Diseño de la tabla personas
@@ -844,26 +850,6 @@ z-index:999;
     color:#7A1623;
 }
 
-
-.admin-sidebar.collapsed {
-    width: 70px;
-}
-
-.admin-content.expanded {
-    margin-left: 70px;
-}
-
-.admin-sidebar.collapsed span {
-    display: none;
-}
-
-.admin-sidebar.collapsed {
-    width: 70px;
-}
-
-.admin-sidebar.collapsed span {
-    display: none;
-}
 .area-section {
     margin-bottom: 30px;
 }
@@ -921,19 +907,19 @@ z-index:999;
    FIX REAL FORMULARIO CONVOCATORIA
 ========================= */
 
-/* 🔥 evita que admin-content fuerce centrado raro */
+/* evita que admin-content fuerce centrado raro */
 .admin-content{
     align-items: flex-start !important;
 }
 
-/* 🔥 contenedor real del formulario */
+/* contenedor real del formulario */
 .conv-wrapper{
     width: 100%;
     max-width: 1100px;
     margin: 0 auto;
 }
 
-/* 🔥 tarjetas controladas */
+/* tarjetas controladas */
 .conv-card{
     background: #fff;
     border-radius: 10px;
@@ -945,14 +931,14 @@ z-index:999;
     width: 100%;
 }
 
-/* 🔥 evita grids infinitos */
+/* evita grids infinitos */
 .conv-grid{
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 15px;
 }
 
-/* 🔥 inputs no se salen */
+/* inputs no se salen */
 .conv-group input,
 .conv-group select,
 .conv-group textarea{
@@ -960,14 +946,14 @@ z-index:999;
     max-width: 100%;
 }
 
-/* 🔥 título bonito sin romper ancho */
+/* título bonito sin romper ancho */
 .conv-title{
     margin-bottom: 20px;
     font-size: 22px;
     font-weight: 600;
 }
 
-/* 🔥 botón bien alineado */
+/* botón bien alineado */
 .conv-btn{
     display: inline-block;
     background: #7A1623;

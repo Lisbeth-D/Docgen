@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers\Auth;
 
-use Illuminate\Validation\ValidationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AuthenticatedSessionController extends Controller
@@ -30,17 +31,33 @@ class AuthenticatedSessionController extends Controller
             'password' => ['required', 'string'],
         ]);
 
+        // Buscar usuario
+        $user = User::where('username', $request->username)->first();
+
+        // Usuario no existe
+        if (!$user) {
+            throw ValidationException::withMessages([
+                'username' => 'Las credenciales no son correctas.',
+            ]);
+        }
+
+        // Usuario desactivado
+        if (!$user->activo) {
+            throw ValidationException::withMessages([
+                'username' => 'La cuenta no tiene permisos activos. Comuníquese con el administrador del sistema.',
+            ]);
+        }
+
+        // Validar contraseña
         if (!Auth::attempt(
             [
                 'username' => $request->username,
                 'password' => $request->password,
-                'activo' => 1
             ],
             $request->boolean('remember')
-        ))
-        {
+        )) {
             throw ValidationException::withMessages([
-                'username' => __('Las credenciales no son correctas.'),
+                'username' => 'Las credenciales no son correctas.',
             ]);
         }
 
@@ -49,29 +66,15 @@ class AuthenticatedSessionController extends Controller
         $user = Auth::user();
 
         // Redirección según rol
-        $user = Auth::user();
-
-        if(!$user->activo){
-
-        Auth::logout();
-
-        return redirect('/')->withErrors([
-        'username'=>'Usuario desactivado'
-        ]);
-
-        }
-
         if ($user->role === 'admin') {
             return redirect()->intended('/admin/dashboard');
         }
 
-        return redirect()->intended('/dashboard');
-
         if ($user->role === 'comprador') {
-            return redirect('/dashboard');
+            return redirect()->intended('/dashboard');
         }
 
-        // Si el rol no existe
+        // Rol inválido
         Auth::logout();
 
         return redirect('/')->withErrors([

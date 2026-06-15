@@ -36,22 +36,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 
-document.getElementById('num_participantes').addEventListener('change', function () {
+const numParticipantes = document.getElementById('num_participantes');
 
-    let container = document.getElementById('participantes_container');
-    container.innerHTML = '';
+if (numParticipantes) {
 
-    for (let i = 0; i < this.value; i++) {
+    numParticipantes.addEventListener('change', function () {
 
-        container.innerHTML += `
-            <div class="conv-group">
-                <input type="text" name="participantes[${i}][nombre]" placeholder="Empresa ${i+1}" required>
+        let container = document.getElementById('participantes_container');
 
-                <select name="participantes[${i}][pregunta]">
-                    <option value="SI">Sí presentó</option>
-                    <option value="NO">No presentó</option>
-                </select>
-            </div>
-        `;
-    }
-});
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        for (let i = 0; i < this.value; i++) {
+
+            container.innerHTML += `
+                <div class="conv-group">
+                    <input type="text"
+                           name="participantes[${i}][nombre]"
+                           placeholder="Empresa ${i + 1}"
+                           required>
+
+                    <select name="participantes[${i}][pregunta]">
+                        <option value="SI">Sí presentó</option>
+                        <option value="NO">No presentó</option>
+                    </select>
+                </div>
+            `;
+        }
+
+    });
+
+}

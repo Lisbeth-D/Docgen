@@ -1,10 +1,5 @@
 <aside class="admin-sidebar" id="sidebar">
 
-    {{-- BOTÓN TOGGLE --}}
-    <button class="toggle-btn" onclick="toggleSidebar()">
-        ☰
-    </button>
-
     <ul>
 
         {{-- ========================================= --}}

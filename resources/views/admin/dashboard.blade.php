@@ -10,20 +10,6 @@
     {{-- CONTENIDO --}}
     <div class="admin-content">
 
-        {{-- USUARIO --}}
-        <div class="top-user-fixed">
-            <div class="user-box" onclick="toggleUserMenu()">
-                👤 {{ Auth::user()->username }}
-            </div>
-
-            <div class="user-dropdown" id="userDropdown">
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit">Cerrar sesión</button>
-                </form>
-            </div>
-        </div>
-
         {{-- BIENVENIDA --}}
         <div class="welcome-card">
             <h2>Panel Administrador</h2>

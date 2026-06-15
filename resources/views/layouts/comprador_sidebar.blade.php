@@ -7,8 +7,8 @@
 <div class="admin-layout">
 
     {{-- SIDEBAR --}}
-    <aside class="admin-sidebar" id="sidebar">
-        <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+    <aside class="admin-sidebar">
+
         <ul>
             <li>
                 <a href="{{ route('convocatoria') }}">
@@ -76,7 +76,6 @@
                                     Acta
                                 </a>
                             </li>
-
                         </ul>
                     </li>
 
@@ -112,23 +111,11 @@
                 </a>
             </li>
         </ul>
+
     </aside>
+
     {{-- CONTENIDO --}}
     <div class="admin-content">
-
-        {{-- USUARIO (ya no absoluto respecto al content) --}}
-        <div class="top-user-fixed">
-            <div class="user-box" onclick="toggleUserMenu()">
-                👤 {{ Auth::user()->username }}
-            </div>
-
-            <div class="user-dropdown" id="userDropdown">
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit">Cerrar sesión</button>
-                </form>
-            </div>
-        </div>
 
         <div class="welcome-card">
             <h2>Bienvenido, {{ Auth::user()->username }}</h2>
@@ -145,11 +132,19 @@ function toggleUserMenu() {
 }
 
 function toggleOficios() {
-    document.getElementById("oficiosSubmenu").classList.toggle("open");
+    const oficios = document.getElementById("oficiosSubmenu");
+    const aclaraciones = document.getElementById("aclaracionesSubmenu");
+
+    aclaraciones.classList.remove("open");
+    oficios.classList.toggle("open");
 }
 
 function toggleAclaraciones() {
-    document.getElementById("aclaracionesSubmenu").classList.toggle("open");
+    const oficios = document.getElementById("oficiosSubmenu");
+    const aclaraciones = document.getElementById("aclaracionesSubmenu");
+
+    oficios.classList.remove("open");
+    aclaraciones.classList.toggle("open");
 }
 
 function toggleSiAplica() {
