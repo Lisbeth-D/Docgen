@@ -1,4 +1,5 @@
 @extends('layouts.app')
+
 @section('content')
 
 <div class="admin-layout">
@@ -13,7 +14,6 @@
 <form action="{{ route('adjudicacion.generar') }}" method="POST" enctype="multipart/form-data" class="conv-form">
 @csrf
 
-<!-- WORD -->
 <div class="conv-card">
     <h3>Plantilla Word</h3>
     <div class="conv-group full">
@@ -22,29 +22,26 @@
     </div>
 </div>
 
-<!-- OFICIO -->
 <div class="conv-card">
 <h3>Datos del Oficio</h3>
 
 <div class="conv-grid">
 <div class="conv-group">
 <label>Número de oficio</label>
-<input type="text" name="oficio_numero">
+<input type="text" name="oficio_numero" required>
 </div>
 
 <div class="conv-group">
 <label>Fecha oficio</label>
-<input type="date" name="fecha_oficio">
+<input type="date" name="fecha_oficio" required>
 </div>
 </div>
 </div>
 
-<!-- PROVEEDOR -->
 <div class="conv-card">
 <h3>Proveedor</h3>
 
 <div class="conv-grid">
-
 <div class="conv-group">
 <label>Razón social</label>
 <input type="text" name="proveedor_razon_social">
@@ -69,37 +66,39 @@
 <label>Teléfono</label>
 <input type="text" name="proveedor_telefono">
 </div>
-
 </div>
 </div>
 
-<!-- PROCEDIMIENTO -->
 <div class="conv-card">
 <h3>Procedimiento</h3>
 
 <div class="conv-grid">
 
-<!-- BUSCAR PROCEDIMIENTO -->
-                    <div class="conv-group">
-                        <label>Buscar procedimiento</label>
-                        <input type="text" id="busqueda_proc" name="numero_busqueda">
-                    </div>
+<div class="conv-group">
+<label>Buscar procedimiento</label>
+<input
+    type="text"
+    id="busqueda_proc"
+    name="numero_busqueda"
+    placeholder="Ejemplo: 25"
+    autocomplete="off"
+    required>
+</div>
 
 <div class="conv-group">
 <label>Tipo</label>
-<input type="text" id="procedimiento_tipo" name="procedimiento_tipo" readonly>
+<input type="text" id="procedimiento_tipo" name="procedimiento_tipo">
 </div>
 
-                    <!-- AUTO -->
-                    <div class="conv-group">
-                        <label>Número procedimiento</label>
-                        <input type="text" id="num_procedimiento" readonly>
-                    </div>
+<div class="conv-group">
+<label>Número procedimiento</label>
+<input type="text" id="num_procedimiento" name="num_procedimiento" required>
+</div>
 
-                    <div class="conv-group">
-                        <label>Nombre procedimiento</label>
-                        <input type="text" id="nombre_procedimiento" readonly>
-                    </div>
+<div class="conv-group">
+<label>Nombre procedimiento</label>
+<input type="text" id="nombre_procedimiento" name="nombre_procedimiento" required>
+</div>
 
 <div class="conv-group">
 <label>Número contrato</label>
@@ -109,13 +108,28 @@
 </div>
 </div>
 
-<!-- MONTOS -->
 <div class="conv-card">
 <h3>Montos</h3>
 
 <div class="conv-grid">
 
-<div class="conv-group">
+<div class="conv-group full">
+<label>Tipo de contrato</label>
+
+<div style="display:flex; gap:20px; margin-top:8px;">
+<label>
+<input type="radio" name="tipo_contrato_monto" value="cerrado" checked>
+Contrato cerrado
+</label>
+
+<label>
+<input type="radio" name="tipo_contrato_monto" value="abierto">
+Contrato abierto
+</label>
+</div>
+</div>
+
+<div class="conv-group" id="grupo_monto_minimo" style="display:none;">
 <label>Monto mínimo</label>
 <input type="number" step="0.01" id="monto_minimo" name="monto_minimo">
 <small id="min_letra"></small>
@@ -130,7 +144,6 @@
 </div>
 </div>
 
-<!-- VIGENCIA -->
 <div class="conv-card">
 <h3>Vigencia</h3>
 
@@ -138,18 +151,17 @@
 
 <div class="conv-group">
 <label>Fecha inicio</label>
-<input type="date" name="fecha_inicio">
+<input type="date" id="fecha_inicio" name="fecha_inicio">
 </div>
 
 <div class="conv-group">
 <label>Fecha fin</label>
-<input type="date" name="fecha_fin">
+<input type="date" id="fecha_fin" name="fecha_fin">
 </div>
 
 </div>
 </div>
 
-<!-- PERSONAL -->
 <div class="conv-card">
 <h3>Responsables</h3>
 
@@ -166,7 +178,6 @@
 </div>
 </div>
 
-<!-- DOCUMENTOS -->
 <div class="conv-card">
 <h3>Documentos requeridos</h3>
 
@@ -208,50 +219,140 @@ $docs = [
 </div>
 </div>
 
-<!-- SCRIPT -->
 <script>
-document.getElementById('busqueda_proc').addEventListener('keyup', function () {
+document.addEventListener('DOMContentLoaded', function () {
 
-let valor = this.value;
+    const inputBusqueda = document.getElementById('busqueda_proc');
 
-if(valor.length < 1){
-    limpiarCampos();
-    return;
-}
+    const inputTipo = document.getElementById('procedimiento_tipo');
+    const inputNum = document.getElementById('num_procedimiento');
+    const inputNombre = document.getElementById('nombre_procedimiento');
 
-fetch(`/buscar-procedimiento/${valor}`)
-.then(res => res.json())
-.then(data => {
+    const inputMontoMinimo = document.getElementById('monto_minimo');
+    const inputMontoMaximo = document.getElementById('monto_maximo');
 
-if(data){
-document.getElementById('procedimiento_tipo').value = data.tipo || '';
-document.getElementById('procedimiento_numero').value = data.numero || '';
-document.getElementById('objeto_contrato').value = data.nombre_procedimiento || '';
-}else{
-limpiarCampos();
-}
+    const inputFechaInicio = document.getElementById('fecha_inicio');
+    const inputFechaFin = document.getElementById('fecha_fin');
 
-}).catch(()=> limpiarCampos());
+    const grupoMontoMinimo = document.getElementById('grupo_monto_minimo');
 
-});
+    const minLetra = document.getElementById('min_letra');
+    const maxLetra = document.getElementById('max_letra');
 
-function limpiarCampos(){
-document.getElementById('procedimiento_tipo').value = '';
-document.getElementById('procedimiento_numero').value = '';
-document.getElementById('objeto_contrato').value = '';
-}
+    const radiosTipoContrato = document.querySelectorAll('input[name="tipo_contrato_monto"]');
 
-// PREVIEW MONEDA
-function numeroALetra(num){
-return new Intl.NumberFormat('es-MX', {style:'currency', currency:'MXN'}).format(num);
-}
+    inputBusqueda.addEventListener('keyup', function () {
 
-document.getElementById('monto_minimo').addEventListener('input', function(){
-document.getElementById('min_letra').innerText = numeroALetra(this.value || 0);
-});
+        const valor = this.value.trim();
 
-document.getElementById('monto_maximo').addEventListener('input', function(){
-document.getElementById('max_letra').innerText = numeroALetra(this.value || 0);
+        if (valor === '') {
+            limpiarCampos();
+            return;
+        }
+
+        fetch(`/buscar-procedimiento-adjudicacion/${encodeURIComponent(valor)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error en la búsqueda del procedimiento');
+                }
+
+                return response.json();
+            })
+            .then(data => {
+
+                if (data && data.num_procedimiento) {
+
+                    inputTipo.value = data.tipo ?? '';
+                    inputNum.value = data.num_procedimiento ?? '';
+                    inputNombre.value = data.nombre_procedimiento ?? '';
+
+                    inputMontoMaximo.value = data.monto_maximo ?? '';
+
+                    inputFechaInicio.value = data.fecha_inicio_contrato ?? '';
+                    inputFechaFin.value = data.fecha_fin_contrato ?? '';
+
+                    aplicarTipoContrato();
+                    actualizarPreviewMontos();
+
+                } else {
+                    limpiarCampos();
+                }
+
+            })
+            .catch(error => {
+                console.error('Error al buscar procedimiento:', error);
+                limpiarCampos();
+            });
+
+    });
+
+    radiosTipoContrato.forEach(radio => {
+        radio.addEventListener('change', function () {
+            aplicarTipoContrato();
+            actualizarPreviewMontos();
+        });
+    });
+
+    inputMontoMaximo.addEventListener('input', function () {
+        aplicarTipoContrato();
+        actualizarPreviewMontos();
+    });
+
+    inputMontoMinimo.addEventListener('input', actualizarPreviewMontos);
+
+    function aplicarTipoContrato() {
+        const tipoContrato = document.querySelector('input[name="tipo_contrato_monto"]:checked').value;
+        const montoMaximo = parseFloat(inputMontoMaximo.value);
+
+        if (tipoContrato === 'abierto') {
+            grupoMontoMinimo.style.display = 'block';
+
+            if (!isNaN(montoMaximo)) {
+                inputMontoMinimo.value = (montoMaximo * 0.40).toFixed(2);
+            }
+
+        } else {
+            grupoMontoMinimo.style.display = 'none';
+            inputMontoMinimo.value = '';
+            minLetra.innerText = '';
+        }
+    }
+
+    function limpiarCampos() {
+        inputTipo.value = '';
+        inputNum.value = '';
+        inputNombre.value = '';
+
+        inputMontoMinimo.value = '';
+        inputMontoMaximo.value = '';
+
+        inputFechaInicio.value = '';
+        inputFechaFin.value = '';
+
+        minLetra.innerText = '';
+        maxLetra.innerText = '';
+
+        document.querySelector('input[name="tipo_contrato_monto"][value="cerrado"]').checked = true;
+        grupoMontoMinimo.style.display = 'none';
+    }
+
+    function numeroALetra(num) {
+        return new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: 'MXN'
+        }).format(num);
+    }
+
+    function actualizarPreviewMontos() {
+        minLetra.innerText = inputMontoMinimo.value
+            ? numeroALetra(inputMontoMinimo.value)
+            : '';
+
+        maxLetra.innerText = inputMontoMaximo.value
+            ? numeroALetra(inputMontoMaximo.value)
+            : '';
+    }
+
 });
 </script>
 

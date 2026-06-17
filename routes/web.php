@@ -49,32 +49,111 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/procedimientos', [ProcedimientoController::class, 'store'])
             ->name('procedimientos.store');
 
-        Route::get('/procedimientos/{id}', [ProcedimientoController::class, 'show'])->name('procedimientos.show');
-        Route::get('/procedimientos/{id}/descargar', [ProcedimientoController::class, 'descargar'])->name('procedimientos.descargar');
+        Route::get('/procedimientos/{id}', [ProcedimientoController::class, 'show'])
+            ->name('procedimientos.show');
 
-        Route::get('/revision', [RevisionController::class, 'index'])->name('revision.form');
-        Route::post('/revision', [RevisionController::class, 'generar'])->name('revision.generar');
+        Route::get('/procedimientos/{id}/descargar', [ProcedimientoController::class, 'descargar'])
+            ->name('procedimientos.descargar');
 
-        Route::get('/publicacion', [PublicacionController::class, 'index'])->name('publicacion.index');
-        Route::post('/publicacion/generar', [PublicacionController::class, 'generar'])->name('publicacion.generar');
+        /*
+        |--------------------------------------------------------------------------
+        | REVISIÓN
+        |--------------------------------------------------------------------------
+        */
 
-        Route::get('/adjudicacion', [AdjudicacionController::class, 'index'])->name('adjudicacion.index');
-        Route::post('/adjudicacion/generar', [AdjudicacionController::class, 'generar'])->name('adjudicacion.generar');
+        Route::get('/revision', [RevisionController::class, 'index'])
+            ->name('revision.form');
 
-         Route::get('/designacion', [DesignacionController::class, 'index'])->name('designacion.index');
-        Route::post('/designacion/generar', [DesignacionController::class, 'generar'])->name('designacion.generar');
+        Route::post('/revision', [RevisionController::class, 'generar'])
+            ->name('revision.generar');
 
-        Route::get('/ac-pregunta', [AcPreguntaController::class, 'index'])->name('ac.index');
-        Route::post('/ac-pregunta/generar', [AcPreguntaController::class, 'generar'])->name('ac.generar');
+        // ESTA RUTA ES LA QUE TE FALTABA
+        Route::get('/buscar-procedimiento/{valor}', [RevisionController::class, 'buscarProcedimiento'])
+            ->name('revision.buscar');
+
+        /*
+        |--------------------------------------------------------------------------
+        | PUBLICACIÓN
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/publicacion', [PublicacionController::class, 'index'])
+            ->name('publicacion.index');
+
+        Route::post('/publicacion/generar', [PublicacionController::class, 'generar'])
+            ->name('publicacion.generar');
+
+        /*
+        |--------------------------------------------------------------------------
+        | ADJUDICACIÓN
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/adjudicacion', [AdjudicacionController::class, 'index'])
+            ->name('adjudicacion.index');
+
+        Route::post('/adjudicacion/generar', [AdjudicacionController::class, 'generar'])
+            ->name('adjudicacion.generar');
+        
+        Route::get('/buscar-procedimiento-adjudicacion/{valor}', [AdjudicacionController::class, 'buscarProcedimiento'])
+             ->name('adjudicacion.buscar');
+
+        /*
+        |--------------------------------------------------------------------------
+        | DESIGNACIÓN
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/designacion', [DesignacionController::class, 'index'])
+            ->name('designacion.index');
+
+        Route::post('/designacion/generar', [DesignacionController::class, 'generar'])
+            ->name('designacion.generar');
+
+        Route::get('/buscar-procedimiento-designacion/{valor}', [DesignacionController::class, 'buscarProcedimiento'])
+    ->name('designacion.buscar');
+
+        /*
+        |--------------------------------------------------------------------------
+        | ACTA DE PREGUNTAS
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/ac-pregunta', [AcPreguntaController::class, 'index'])
+            ->name('ac.index');
+
+        Route::post('/ac-pregunta/generar', [AcPreguntaController::class, 'generar'])
+            ->name('ac.generar');
+
         Route::get('/buscar-procedimiento-ac/{valor}', [AcPreguntaController::class, 'buscarProcedimiento']);
 
-        Route::get('/acta', [AclaracionController::class, 'index'])->name('acta.index');
-        Route::post('/acta/generar', [AclaracionController::class, 'generar'])->name('acta.generar');
+        /*
+        |--------------------------------------------------------------------------
+        | ACTA DE ACLARACIÓN
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/acta', [AclaracionController::class, 'index'])
+            ->name('acta.index');
+
+        Route::post('/acta/generar', [AclaracionController::class, 'generar'])
+            ->name('acta.generar');
+
         Route::get('/buscar-procedimiento-acta/{valor}', [AclaracionController::class, 'buscarProcedimiento']);
 
-        Route::get('/acta-cierre',[ActaCierreController::class, 'index'])->name('actacierre.index');
-        Route::post('/acta-cierre/generar',[ActaCierreController::class, 'generar'])->name('actacierre.generar');
-        Route::get('/buscar-procedimiento-actacierre/{valor}',[ActaCierreController::class, 'buscarProcedimiento']);
+        /*
+        |--------------------------------------------------------------------------
+        | ACTA DE CIERRE
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/acta-cierre', [ActaCierreController::class, 'index'])
+            ->name('actacierre.index');
+
+        Route::post('/acta-cierre/generar', [ActaCierreController::class, 'generar'])
+            ->name('actacierre.generar');
+
+        Route::get('/buscar-procedimiento-actacierre/{valor}', [ActaCierreController::class, 'buscarProcedimiento']);
     });
 
     /*
@@ -83,40 +162,35 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::middleware(['auth','role:admin'])->group(function () {
+    Route::middleware(['auth', 'role:admin'])->group(function () {
 
-    Route::get('/admin/dashboard',
-    [DashboardController::class,'adminDashboard']
-    )->name('admin.dashboard');
+        Route::get('/admin/dashboard', [DashboardController::class, 'adminDashboard'])
+            ->name('admin.dashboard');
 
-    Route::get('/usuarios', [UserController::class,'index']);
-    Route::get('/usuarios/crear', [UserController::class,'create']);
-    Route::post('/usuarios', [UserController::class,'store']);
-    Route::delete('/usuarios/{id}', [UserController::class,'destroy']);
-    Route::put('/usuarios/{id}', [UserController::class,'update']);
-    Route::get('/usuarios/{id}/editar',[UserController::class,'edit']);
+        Route::get('/usuarios', [UserController::class, 'index']);
+        Route::get('/usuarios/crear', [UserController::class, 'create']);
+        Route::post('/usuarios', [UserController::class, 'store']);
+        Route::delete('/usuarios/{id}', [UserController::class, 'destroy']);
+        Route::put('/usuarios/{id}', [UserController::class, 'update']);
+        Route::get('/usuarios/{id}/editar', [UserController::class, 'edit']);
 
-    Route::post('/usuarios/reset/{id}',
-    [UserController::class,'resetPassword']);
+        Route::post('/usuarios/reset/{id}', [UserController::class, 'resetPassword']);
 
-    Route::post('/usuarios/toggle/{id}',
-    [UserController::class,'toggleActivo']);
+        Route::post('/usuarios/toggle/{id}', [UserController::class, 'toggleActivo']);
 
-    Route::get('/admin/reportes/actividad', [UserController::class, 'actividad'])
-    ->middleware(['auth','role:admin']);
+        Route::get('/admin/reportes/actividad', [UserController::class, 'actividad'])
+            ->middleware(['auth', 'role:admin']);
 
-    Route::get('/personas', [PersonaController::class, 'index']);
-    Route::get('/personas/crear', [PersonaController::class, 'create'])
-    ->name('personas.create');
-    Route::get('/personas/{id}/editar', [PersonaController::class, 'edit']);
-    Route::put('/personas/{id}', [PersonaController::class, 'update']);
-    Route::post('/personas', [PersonaController::class, 'store']);
-    Route::delete('/personas/{id}', [PersonaController::class, 'destroy']);
-    Route::get('/procedimientos', [ProcedimientoController::class, 'procedi']);
+        Route::get('/personas', [PersonaController::class, 'index']);
+        Route::get('/personas/crear', [PersonaController::class, 'create'])
+            ->name('personas.create');
+        Route::get('/personas/{id}/editar', [PersonaController::class, 'edit']);
+        Route::put('/personas/{id}', [PersonaController::class, 'update']);
+        Route::post('/personas', [PersonaController::class, 'store']);
+        Route::delete('/personas/{id}', [PersonaController::class, 'destroy']);
 
-
+        Route::get('/procedimientos', [ProcedimientoController::class, 'procedi']);
     });
-
 });
 
 /*
@@ -134,4 +208,4 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
 |--------------------------------------------------------------------------
 */
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

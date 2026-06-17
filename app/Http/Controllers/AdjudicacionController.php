@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use PhpOffice\PhpWord\TemplateProcessor;
-use PhpOffice\PhpWord\Shared\Converter;
 use App\Models\Persona;
 use App\Models\Procedimiento;
 use Illuminate\Support\Facades\Auth;
@@ -14,78 +13,124 @@ class AdjudicacionController extends Controller
 {
     public function index()
     {
-        $personas = Persona::orderBy('nombre')->get();
+        $personas = Persona::whereHas('area', function ($query) {
+                $query->where('nombre', 'Coordinación de Adquisiciones y Servicios');
+            })
+            ->orderBy('nombre')
+            ->get();
+
         return view('comprador.adjudicacion.adjudicacion', compact('personas'));
+    }
+
+    public function buscarProcedimiento($valor)
+    {
+        $valor = trim($valor);
+
+        $procedimiento = Procedimiento::with('tipo')
+            ->where('num_procedimiento', 'LIKE', '%-N-' . $valor . '-%')
+            ->first();
+
+        if (!$procedimiento) {
+            return response()->json(null);
+        }
+
+        return response()->json([
+            'tipo'                  => optional($procedimiento->tipo)->nombre_tipo ?? '',
+            'num_procedimiento'     => $procedimiento->num_procedimiento,
+            'nombre_procedimiento'  => $procedimiento->nombre_procedimiento,
+            'monto_maximo'          => $procedimiento->monto_maximo ?? '',
+            'fecha_inicio_contrato' => $procedimiento->fecha_inicio_contrato
+                ? Carbon::parse($procedimiento->fecha_inicio_contrato)->format('Y-m-d')
+                : '',
+            'fecha_fin_contrato'    => $procedimiento->fecha_fin_contrato
+                ? Carbon::parse($procedimiento->fecha_fin_contrato)->format('Y-m-d')
+                : '',
+        ]);
     }
 
     public function generar(Request $request)
     {
-        // =========================
-        // VALIDACIÓN
-        // =========================
         $request->validate([
-            'oficio_numero' => 'required',
-            'fecha_oficio' => 'required|date',
-            'numero_busqueda' => 'required',
-            'archivo_word' => 'required|file|mimes:docx'
+            'oficio_numero'           => 'required',
+            'fecha_oficio'            => 'required|date',
+            'numero_busqueda'         => 'required',
+
+            'tipo_contrato_monto'     => 'required|in:abierto,cerrado',
+
+            'procedimiento_tipo'      => 'nullable',
+            'num_procedimiento'       => 'required',
+            'nombre_procedimiento'    => 'required',
+
+            'contrato_numero'         => 'nullable',
+            'monto_minimo'            => 'nullable|numeric',
+            'monto_maximo'            => 'nullable|numeric',
+            'fecha_inicio'            => 'nullable|date',
+            'fecha_fin'               => 'nullable|date',
+
+            'proveedor_razon_social'  => 'nullable',
+            'proveedor_rfc'           => 'nullable',
+            'proveedor_domicilio'     => 'nullable',
+            'proveedor_email'         => 'nullable|email',
+            'proveedor_telefono'      => 'nullable',
+
+            'reviso_id'               => 'nullable|exists:personas,id',
+            'documentos'              => 'nullable|array',
+            'archivo_word'            => 'required|file|mimes:docx'
         ]);
 
-        // =========================
-        // BUSCAR PROCEDIMIENTO
-        // =========================
-        $procedimiento = Procedimiento::where('num_procedimiento', 'like', '%' . $request->numero_busqueda . '%')->first();
+        $procedimiento = Procedimiento::where(
+            'num_procedimiento',
+            'LIKE',
+            '%-N-' . $request->numero_busqueda . '-%'
+        )->first();
 
         if (!$procedimiento) {
             return back()->with('error', 'No se encontró el procedimiento');
         }
 
-        // =========================
-        // FECHA OFICIO FORMATO
-        // =========================
         $fechaOficio = Carbon::parse($request->fecha_oficio)
             ->locale('es')
             ->translatedFormat('d \d\e F \d\e Y');
 
-        // =========================
-        // WORD
-        // =========================
         $template = new TemplateProcessor($request->file('archivo_word'));
 
-        // =========================
-        // DATOS GENERALES
-        // =========================
         $template->setValue('oficio_numero', $request->oficio_numero);
         $template->setValue('fecha_oficio', $fechaOficio);
 
-        $template->setValue('proveedor_razon_social', $request->proveedor_razon_social);
-        $template->setValue('proveedor_rfc', $request->proveedor_rfc);
-        $template->setValue('proveedor_domicilio', $request->proveedor_domicilio);
-        $template->setValue('proveedor_email', $request->proveedor_email);
-        $template->setValue('proveedor_telefono', $request->proveedor_telefono);
+        $template->setValue('proveedor_razon_social', $request->proveedor_razon_social ?? '');
+        $template->setValue('proveedor_rfc', $request->proveedor_rfc ?? '');
+        $template->setValue('proveedor_domicilio', $request->proveedor_domicilio ?? '');
+        $template->setValue('proveedor_email', $request->proveedor_email ?? '');
+        $template->setValue('proveedor_telefono', $request->proveedor_telefono ?? '');
 
-        // =========================
-        // DATOS DESDE BD
-        // =========================
-        $template->setValue('procedimiento_numero', $procedimiento->num_procedimiento);
-        $template->setValue('objeto_contrato', $procedimiento->nombre_procedimiento);
-        $template->setValue('procedimiento_tipo', $procedimiento->tipo ?? '');
+        $template->setValue('procedimiento_numero', $request->num_procedimiento);
+        $template->setValue('num_procedimiento', $request->num_procedimiento);
+        $template->setValue('objeto_contrato', $request->nombre_procedimiento);
+        $template->setValue('nombre_procedimiento', $request->nombre_procedimiento);
+        $template->setValue('procedimiento_tipo', $request->procedimiento_tipo ?? '');
+        $template->setValue('contrato_numero', $request->contrato_numero ?? '');
 
-        $template->setValue('contrato_numero', $request->contrato_numero);
+        if ($request->tipo_contrato_monto === 'abierto') {
+            $template->setValue(
+                'monto_minimo',
+                $request->filled('monto_minimo') ? $this->numeroALetras($request->monto_minimo) : ''
+            );
+        } else {
+            $template->setValue('monto_minimo', '');
+        }
 
-        // =========================
-        // MONTOS
-        // =========================
-        $template->setValue('monto_minimo', $this->numeroALetras($request->monto_minimo));
-        $template->setValue('monto_maximo', $this->numeroALetras($request->monto_maximo));
+        $template->setValue(
+            'monto_maximo',
+            $request->filled('monto_maximo') ? $this->numeroALetras($request->monto_maximo) : ''
+        );
 
-        // =========================
-        // VIGENCIA
-        // =========================
-        $template->setValue('vigencia', $this->formatearFechas($request->fecha_inicio, $request->fecha_fin));
+        $template->setValue(
+            'vigencia',
+            ($request->filled('fecha_inicio') && $request->filled('fecha_fin'))
+                ? $this->formatearFechas($request->fecha_inicio, $request->fecha_fin)
+                : ''
+        );
 
-        // =========================
-        // DOCUMENTOS (FIX REAL)
-        // =========================
         $mapaDocumentos = [
             "Acta Constitutiva y reformas" => "a) Acta Constitutiva y sus reformas, señalando los siguientes datos: número de escritura, lugar y fecha de constitución, nombre y número de la notaría y notario, nombre o razón social de la empresa, objeto social de la empresa, lugar, fecha y folio del registro público de la propiedad) y/o acta de nacimiento.",
             "Poder Notarial del Representante Legal" => "b) Poder Notarial de su Representante Legal señalando los siguientes datos: nombre del apoderado ó representante legal, numero de escritura, lugar, fecha y nombre de quien expide el instrumento notarial de constitución o poder y RFC del mismo.",
@@ -103,7 +148,7 @@ class AdjudicacionController extends Controller
         $documentos = $request->documentos ?? [];
 
         if (!empty($documentos)) {
-            $textoDocs = implode('</w:t><w:br/><w:t>', array_map(function($doc) use ($mapaDocumentos) {
+            $textoDocs = implode('</w:t><w:br/><w:t>', array_map(function ($doc) use ($mapaDocumentos) {
                 return $mapaDocumentos[$doc] ?? '';
             }, $documentos));
 
@@ -112,12 +157,11 @@ class AdjudicacionController extends Controller
             $template->setValue('documentos', '');
         }
 
-        // =========================
-        // PERSONAS
-        // =========================
         $textoReviso = '';
-        if ($request->reviso_id) {
+
+        if ($request->filled('reviso_id')) {
             $persona = Persona::find($request->reviso_id);
+
             if ($persona) {
                 $textoReviso = $persona->nombre . '.- ' . $persona->cargo . ':';
             }
@@ -128,9 +172,6 @@ class AdjudicacionController extends Controller
         $user = Auth::user();
         $template->setValue('elaboro', $user ? $user->name : '');
 
-        // =========================
-        // GUARDAR
-        // =========================
         $fileName = 'Adjudicacion_' . time() . '.docx';
         $path = storage_path($fileName);
 
@@ -139,11 +180,10 @@ class AdjudicacionController extends Controller
         return response()->download($path)->deleteFileAfterSend(true);
     }
 
-    // =========================
-    // NUMERO A LETRAS
-    // =========================
     private function numeroALetras($numero)
     {
+        $numero = (float) $numero;
+
         $formatter = new \NumberFormatter("es", \NumberFormatter::SPELLOUT);
 
         $entero = floor($numero);
@@ -158,9 +198,9 @@ class AdjudicacionController extends Controller
     private function formatearFechas($inicio, $fin)
     {
         $meses = [
-            1=>'enero',2=>'febrero',3=>'marzo',4=>'abril',
-            5=>'mayo',6=>'junio',7=>'julio',8=>'agosto',
-            9=>'septiembre',10=>'octubre',11=>'noviembre',12=>'diciembre'
+            1 => 'enero', 2 => 'febrero', 3 => 'marzo', 4 => 'abril',
+            5 => 'mayo', 6 => 'junio', 7 => 'julio', 8 => 'agosto',
+            9 => 'septiembre', 10 => 'octubre', 11 => 'noviembre', 12 => 'diciembre'
         ];
 
         $i = date('j', strtotime($inicio)) . ' de ' . $meses[date('n', strtotime($inicio))] . ' de ' . date('Y', strtotime($inicio));

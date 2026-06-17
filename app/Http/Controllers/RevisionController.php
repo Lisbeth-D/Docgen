@@ -13,113 +13,124 @@ class RevisionController extends Controller
 {
     public function index()
     {
-        $personas = Persona::orderBy('nombre')->get();
+        $personas = Persona::whereHas('area', function ($query) {
+                $query->where('nombre', 'Coordinación de Adquisiciones y Servicios');
+            })
+            ->orderBy('nombre')
+            ->get();
+
         return view('comprador.revision.revision', compact('personas'));
+    }
+
+    public function buscarProcedimiento($valor)
+    {
+        $valor = trim($valor);
+
+        $procedimiento = Procedimiento::with('tipo')
+            ->where('num_procedimiento', 'LIKE', '%-N-' . $valor . '-%')
+            ->first();
+
+        if (!$procedimiento) {
+            return response()->json(null);
+        }
+
+        return response()->json([
+            'num_procedimiento'    => $procedimiento->num_procedimiento,
+            'nombre_procedimiento' => $procedimiento->nombre_procedimiento,
+            'tipo'                 => optional($procedimiento->tipo)->nombre_tipo ?? '',
+        ]);
     }
 
     public function generar(Request $request)
     {
         $request->validate([
-            'numero_referencia' => 'required',
-            'fecha_oficio'      => 'required|date',
-            'fecha_publicacion' => 'nullable|date',
-            'numero_busqueda'   => 'required',
-            'reviso_id'         => 'nullable|exists:personas,id',
-            'archivo_word'      => 'required|file|mimes:docx'
+            'numero_referencia'    => 'required',
+            'fecha_oficio'         => 'required|date',
+            'fecha_publicacion'    => 'nullable|date',
+            'numero_busqueda'      => 'required',
+            'num_procedimiento'    => 'required',
+            'nombre_procedimiento' => 'required',
+            'tipo_procedimiento'   => 'nullable',
+            'reviso_id'            => 'nullable|exists:personas,id',
+            'archivo_word'         => 'required|file|mimes:docx',
         ]);
 
-        // 🔍 BUSCAR PROCEDIMIENTO
-        $procedimiento = Procedimiento::where('num_procedimiento', 'like', '%' . $request->numero_busqueda . '%')->first();
+        $procedimiento = Procedimiento::where(
+            'num_procedimiento',
+            'LIKE',
+            '%-N-' . $request->numero_busqueda . '-%'
+        )->first();
 
         if (!$procedimiento) {
-            return back()->with('error', 'No se encontró el procedimiento');
+            return back()->with('error', 'No se encontró el procedimiento.');
         }
 
-        // 👤 PERSONA (REVISÓ)
         $textoReviso = '';
-        if ($request->reviso_id) {
+
+        if ($request->filled('reviso_id')) {
             $persona = Persona::find($request->reviso_id);
+
             if ($persona) {
                 $textoReviso = $persona->nombre . '.- ' . $persona->cargo . ':';
             }
         }
 
-        // 👤 USUARIO (ELABORÓ)
         $user = Auth::user();
         $textoElaboro = $user ? $user->name : '';
 
-        // 📅 FECHA OFICIO → 20 de abril del 2026
         $fechaOficio = Carbon::parse($request->fecha_oficio)
             ->locale('es')
             ->translatedFormat('d \d\e F \d\e Y');
 
-        // 📅 FECHA PUBLICACIÓN → 20 de abril del presente.
         $fechaPublicacion = '';
+
         if ($request->filled('fecha_publicacion')) {
             $fechaPublicacion = Carbon::parse($request->fecha_publicacion)
                 ->locale('es')
                 ->translatedFormat('d \d\e F') . ' del presente.';
         }
 
-        // =========================
-        // WORD
-        // =========================
-        if ($request->hasFile('archivo_word')) {
-
-            $file = $request->file('archivo_word');
-            $filename = time() . '_' . $file->getClientOriginalName();
-
-            $templateDir = storage_path('app/plantillas');
-
-            if (!file_exists($templateDir)) {
-                mkdir($templateDir, 0777, true);
-            }
-
-            $file->move($templateDir, $filename);
-
-            $templatePath = $templateDir . '/' . $filename;
-
-            $templateProcessor = new TemplateProcessor($templatePath);
-
-            // =========================
-            // DATOS DEL FORMULARIO
-            // =========================
-            $templateProcessor->setValue('numero_referencia', $request->numero_referencia);
-            $templateProcessor->setValue('fecha_oficio', $fechaOficio);
-            $templateProcessor->setValue('fecha_publicacion', $fechaPublicacion);
-
-            // =========================
-            // DATOS DESDE BD
-            // =========================
-            $templateProcessor->setValue('num_procedimiento', $procedimiento->num_procedimiento);
-            $templateProcessor->setValue('nombre_procedimiento', $procedimiento->nombre_procedimiento);
-
-            $tipo = optional($procedimiento->tipo)->nombre_tipo ?? '';
-            $templateProcessor->setValue('tipo_procedimiento', $tipo);
-
-            // =========================
-            // PERSONAS
-            // =========================
-            $templateProcessor->setValue('reviso', $textoReviso);
-            $templateProcessor->setValue('elaboro', $textoElaboro);
-
-            // =========================
-            // GUARDAR Y DESCARGAR
-            // =========================
-            $outputDir = storage_path('app/public/documentos');
-
-            if (!file_exists($outputDir)) {
-                mkdir($outputDir, 0777, true);
-            }
-
-            $outputName = 'revision_' . time() . '.docx';
-            $outputPath = $outputDir . '/' . $outputName;
-
-            $templateProcessor->saveAs($outputPath);
-
-            return response()->download($outputPath);
+        if (!$request->hasFile('archivo_word')) {
+            return back()->with('error', 'No se subió ningún archivo Word.');
         }
 
-        return back()->with('error', 'No se subió archivo');
+        $file = $request->file('archivo_word');
+        $filename = time() . '_' . $file->getClientOriginalName();
+
+        $templateDir = storage_path('app/plantillas');
+
+        if (!file_exists($templateDir)) {
+            mkdir($templateDir, 0777, true);
+        }
+
+        $file->move($templateDir, $filename);
+
+        $templatePath = $templateDir . '/' . $filename;
+
+        $templateProcessor = new TemplateProcessor($templatePath);
+
+        $templateProcessor->setValue('numero_referencia', $request->numero_referencia);
+        $templateProcessor->setValue('fecha_oficio', $fechaOficio);
+        $templateProcessor->setValue('fecha_publicacion', $fechaPublicacion);
+
+        $templateProcessor->setValue('num_procedimiento', $request->num_procedimiento);
+        $templateProcessor->setValue('nombre_procedimiento', $request->nombre_procedimiento);
+        $templateProcessor->setValue('tipo_procedimiento', $request->tipo_procedimiento);
+
+        $templateProcessor->setValue('reviso', $textoReviso);
+        $templateProcessor->setValue('elaboro', $textoElaboro);
+
+        $outputDir = storage_path('app/public/documentos');
+
+        if (!file_exists($outputDir)) {
+            mkdir($outputDir, 0777, true);
+        }
+
+        $outputName = 'revision_' . time() . '.docx';
+        $outputPath = $outputDir . '/' . $outputName;
+
+        $templateProcessor->saveAs($outputPath);
+
+        return response()->download($outputPath)->deleteFileAfterSend(true);
     }
 }

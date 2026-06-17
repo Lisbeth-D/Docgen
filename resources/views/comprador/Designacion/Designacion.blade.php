@@ -1,4 +1,5 @@
 @extends('layouts.app')
+
 @section('content')
 
 <div class="admin-layout">
@@ -30,77 +31,107 @@
 
                     <div class="conv-grid">
 
-                        <!-- REFERENCIA -->
                         <div class="conv-group">
                             <label>Número de referencia</label>
-                            <input type="text" name="numero_referencia">
+                            <input type="text" name="numero_referencia" required>
                         </div>
 
-                        <!-- FECHA OFICIO -->
                         <div class="conv-group">
                             <label>Fecha oficio</label>
-                            <input type="date" name="fecha_oficio">
+                            <input type="date" name="fecha_oficio" required>
                         </div>
 
-                        <!-- BUSCAR PROCEDIMIENTO -->
                         <div class="conv-group">
                             <label>Buscar procedimiento</label>
-                            <input type="text" id="busqueda_proc" name="numero_busqueda">
+                            <input
+                                type="text"
+                                id="busqueda_proc"
+                                name="numero_busqueda"
+                                placeholder="Ejemplo: 25"
+                                autocomplete="off"
+                                required>
                         </div>
 
-                        <!-- AUTO -->
                         <div class="conv-group">
                             <label>Número procedimiento</label>
-                            <input type="text" id="num_procedimiento" readonly>
+                            <input
+                                type="text"
+                                id="num_procedimiento"
+                                name="num_procedimiento"
+                                required>
                         </div>
 
                         <div class="conv-group">
                             <label>Nombre procedimiento</label>
-                            <input type="text" id="nombre_procedimiento" readonly>
+                            <input
+                                type="text"
+                                id="nombre_procedimiento"
+                                name="nombre_procedimiento"
+                                required>
                         </div>
 
-                        <!-- VISITA / MUESTRA -->
                         <div class="conv-group">
                             <label>Fecha visita/muestra</label>
-                            <input type="text" id="fecha_vm" name="fecha_vm" readonly>
+                            <input
+                                type="text"
+                                id="fecha_vm"
+                                name="fecha_vm">
                         </div>
 
                         <div class="conv-group">
                             <label>Hora visita/muestra</label>
-                            <input type="text" id="hora_vm" name="hora_vm" readonly>
+                            <input
+                                type="text"
+                                id="hora_vm"
+                                name="hora_vm">
                         </div>
 
-                        <!-- ACLARACIONES -->
                         <div class="conv-group">
                             <label>Fecha Junta de Aclaraciones</label>
-                            <input type="date" id="fecha_ac" name="fecha_ac" readonly>
+                            <input
+                                type="date"
+                                id="fecha_ac"
+                                name="fecha_ac">
                         </div>
 
                         <div class="conv-group">
                             <label>Hora Junta de Aclaraciones</label>
-                            <input type="time" id="hora_ac" name="hora_ac" readonly>
+                            <input
+                                type="time"
+                                id="hora_ac"
+                                name="hora_ac">
                         </div>
 
-                        <!-- APERTURA -->
                         <div class="conv-group">
                             <label>Fecha Junta de Apertura</label>
-                            <input type="date" id="fecha_apertura" name="fecha_apertura" readonly>
+                            <input
+                                type="date"
+                                id="fecha_apertura"
+                                name="fecha_apertura">
                         </div>
 
                         <div class="conv-group">
                             <label>Hora Junta de Apertura</label>
-                            <input type="time" id="hora_apertura" name="hora_apertura" readonly>
+                            <input
+                                type="time"
+                                id="hora_apertura"
+                                name="hora_apertura">
                         </div>
 
-                        <!-- FALLO -->
                         <div class="conv-group">
                             <label>Fecha Junta de Fallo</label>
-                            <input type="date" id="fecha_fallo" name="fecha_fallo" readonly>
+                            <input
+                                type="date"
+                                id="fecha_fallo"
+                                name="fecha_fallo">
                         </div>
 
                         <div class="conv-group">
                             <label>Hora Junta de Fallo</label>
-                            <input type="time" id="hora_fallo" name="hora_fallo" readonly>
+                            <input
+                                type="time"
+                                id="hora_fallo"
+                                name="hora_fallo">
                         </div>
 
                         <!-- REVISO -->
@@ -108,11 +139,13 @@
                             <label>Revisó</label>
                             <select name="reviso_id">
                                 <option value="">Seleccionar</option>
+
                                 @foreach($personas as $p)
                                     <option value="{{ $p->id }}">
                                         {{ $p->nombre }}
                                     </option>
                                 @endforeach
+
                             </select>
                         </div>
 
@@ -137,56 +170,83 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const inputBusqueda = document.getElementById('busqueda_proc');
 
+    const inputNumProcedimiento = document.getElementById('num_procedimiento');
+    const inputNombreProcedimiento = document.getElementById('nombre_procedimiento');
+
+    const inputFechaVm = document.getElementById('fecha_vm');
+    const inputHoraVm = document.getElementById('hora_vm');
+
+    const inputFechaAc = document.getElementById('fecha_ac');
+    const inputHoraAc = document.getElementById('hora_ac');
+
+    const inputFechaApertura = document.getElementById('fecha_apertura');
+    const inputHoraApertura = document.getElementById('hora_apertura');
+
+    const inputFechaFallo = document.getElementById('fecha_fallo');
+    const inputHoraFallo = document.getElementById('hora_fallo');
+
     inputBusqueda.addEventListener('keyup', function () {
 
-        let valor = this.value;
+        const valor = this.value.trim();
 
-        if (valor.length >= 1) {
-
-            fetch(`/buscar-procedimiento/${valor}`)
-                .then(res => res.json())
-                .then(data => {
-
-                    if (data) {
-                        document.getElementById('num_procedimiento').value = data.num_procedimiento;
-                        document.getElementById('nombre_procedimiento').value = data.nombre_procedimiento;
-
-                        // FECHAS
-                        document.getElementById('fecha_vm').value = data.fecha_vm;
-                        document.getElementById('fecha_ac').value = data.fecha_ac;
-                        document.getElementById('fecha_apertura').value = data.fecha_apertura;
-                        document.getElementById('fecha_fallo').value = data.fecha_fallo;
-
-                        // HORAS
-                        document.getElementById('hora_vm').value = data.hora_vm;
-                        document.getElementById('hora_ac').value = data.hora_ac;
-                        document.getElementById('hora_apertura').value = data.hora_apertura;
-                        document.getElementById('hora_fallo').value = data.hora_fallo;
-
-                    } else {
-                        limpiarCampos();
-                    }
-
-                })
-                .catch(() => limpiarCampos());
-        } else {
+        if (valor === '') {
             limpiarCampos();
+            return;
         }
+
+        fetch(`/buscar-procedimiento-designacion/${encodeURIComponent(valor)}`)
+            .then(response => {
+
+                if (!response.ok) {
+                    throw new Error('Error en la búsqueda del procedimiento');
+                }
+
+                return response.json();
+            })
+            .then(data => {
+
+                if (data && data.num_procedimiento) {
+                    inputNumProcedimiento.value = data.num_procedimiento ?? '';
+                    inputNombreProcedimiento.value = data.nombre_procedimiento ?? '';
+
+                    inputFechaVm.value = data.fecha_vm ?? '';
+                    inputHoraVm.value = data.hora_vm ?? '';
+
+                    inputFechaAc.value = data.fecha_ac ?? '';
+                    inputHoraAc.value = data.hora_ac ?? '';
+
+                    inputFechaApertura.value = data.fecha_apertura ?? '';
+                    inputHoraApertura.value = data.hora_apertura ?? '';
+
+                    inputFechaFallo.value = data.fecha_fallo ?? '';
+                    inputHoraFallo.value = data.hora_fallo ?? '';
+                } else {
+                    limpiarCampos();
+                }
+
+            })
+            .catch(error => {
+                console.error('Error al buscar procedimiento:', error);
+                limpiarCampos();
+            });
+
     });
 
     function limpiarCampos() {
-        document.getElementById('num_procedimiento').value = '';
-        document.getElementById('nombre_procedimiento').value = '';
+        inputNumProcedimiento.value = '';
+        inputNombreProcedimiento.value = '';
 
-        document.getElementById('fecha_vm').value = '';
-        document.getElementById('fecha_ac').value = '';
-        document.getElementById('fecha_apertura').value = '';
-        document.getElementById('fecha_fallo').value = '';
+        inputFechaVm.value = '';
+        inputHoraVm.value = '';
 
-        document.getElementById('hora_vm').value = '';
-        document.getElementById('hora_ac').value = '';
-        document.getElementById('hora_apertura').value = '';
-        document.getElementById('hora_fallo').value = '';
+        inputFechaAc.value = '';
+        inputHoraAc.value = '';
+
+        inputFechaApertura.value = '';
+        inputHoraApertura.value = '';
+
+        inputFechaFallo.value = '';
+        inputHoraFallo.value = '';
     }
 
 });
