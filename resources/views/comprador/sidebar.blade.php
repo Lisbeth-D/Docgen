@@ -122,15 +122,10 @@
 
                 {{-- NO APLICA JUNTA --}}
                 <li>
-
-                    <a href="#">
-
+                    <a href="{{ route('noaplica.index') }}">
                         <i data-feather="x-circle"></i>
-
                         <span>No aplica junta</span>
-
                     </a>
-
                 </li>
 
             </ul>

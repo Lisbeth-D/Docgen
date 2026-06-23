@@ -13,6 +13,7 @@ use App\Http\Controllers\DesignacionController;
 use App\Http\Controllers\AcPreguntaController;
 use App\Http\Controllers\AclaracionController;
 use App\Http\Controllers\ActaCierreController;
+use App\Http\Controllers\NoAplicaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -154,6 +155,15 @@ Route::middleware(['auth'])->group(function () {
             ->name('actacierre.generar');
 
         Route::get('/buscar-procedimiento-actacierre/{valor}', [ActaCierreController::class, 'buscarProcedimiento']);
+
+        Route::get('/no-aplica-junta', [NoAplicaController::class, 'index'])
+        ->name('noaplica.index');
+
+        Route::get('/no-aplica-junta/buscar/{valor}', [NoAplicaController::class, 'buscarProcedimiento'])
+            ->name('noaplica.buscar');
+
+        Route::post('/no-aplica-junta/generar', [NoAplicaController::class, 'generar'])
+            ->name('noaplica.generar');
     });
 
     /*
