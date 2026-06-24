@@ -137,12 +137,9 @@
         {{-- ========================================= --}}
         <li>
 
-            <a href="#">
-
+            <a href="{{ route('apertura.index') }}">
                 <i data-feather="package"></i>
-
                 <span>Apertura</span>
-
             </a>
 
         </li>

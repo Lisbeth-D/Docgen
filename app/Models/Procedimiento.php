@@ -27,8 +27,30 @@ class Procedimiento extends Model
         'id_persona'
     ];
 
-        public function tipo()
+    public function tipo()
     {
-        return $this->belongsTo(TipoProcedimiento::class, 'id_tipo_procedimiento', 'id_tipo_procedimiento');
+        return $this->belongsTo(
+            TipoProcedimiento::class,
+            'id_tipo_procedimiento',
+            'id_tipo_procedimiento'
+        );
+    }
+
+    public function comprador()
+    {
+        return $this->belongsTo(
+            User::class,
+            'user_id',
+            'id'
+        );
+    }
+
+    public function persona()
+    {
+        return $this->belongsTo(
+            Persona::class,
+            'id_persona',
+            'id'
+        );
     }
 }

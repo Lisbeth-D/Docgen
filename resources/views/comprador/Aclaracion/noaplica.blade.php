@@ -10,47 +10,54 @@
 
     <div class="admin-content">
 
-        <div class="form-wrapper">
+        <div class="conv-wrapper">
 
-            <div class="form-card">
+            <form action="{{ route('noaplica.generar') }}"
+                  method="POST"
+                  enctype="multipart/form-data"
+                  class="conv-form">
 
-                <h2>No aplica junta</h2>
+                @csrf
+
+                <h2 class="conv-title">No aplica junta</h2>
 
                 <p class="form-subtitle">
                     Complete la información para generar el documento.
                 </p>
 
-                @if(session('error'))
-                    <div class="alert alert-danger">
-                        {{ session('error') }}
+                {{-- WORD --}}
+                <div class="conv-card">
+                    <h3>Plantilla Word</h3>
+
+                    <div class="conv-group full">
+                        <label>Subir archivo Word (.docx)</label>
+                        <input type="file"
+                               name="archivo_word"
+                               accept=".docx"
+                               required>
                     </div>
-                @endif
+                </div>
 
-                @if($errors->any())
-                    <div class="alert alert-danger">
-                        Revise los campos obligatorios.
-                    </div>
-                @endif
+                {{-- DATOS --}}
+                <div class="conv-card">
+                    <h3>Datos del procedimiento</h3>
 
-                <form action="{{ route('noaplica.generar') }}"
-                      method="POST"
-                      enctype="multipart/form-data">
-
-                    @csrf
-
-                    <div class="form-grid">
-
-                        {{-- Plantilla Word --}}
-                        <div class="form-group full">
-                            <label>Plantilla Word (.docx)</label>
-                            <input type="file"
-                                   name="archivo_word"
-                                   accept=".docx"
-                                   required>
+                    @if(session('error'))
+                        <div class="alert alert-danger">
+                            {{ session('error') }}
                         </div>
+                    @endif
+
+                    @if($errors->any())
+                        <div class="alert alert-danger">
+                            Revise los campos obligatorios.
+                        </div>
+                    @endif
+
+                    <div class="conv-grid">
 
                         {{-- Número para búsqueda --}}
-                        <div class="form-group">
+                        <div class="conv-group">
                             <label>Número de procedimiento</label>
                             <input type="text"
                                    name="numero_busqueda"
@@ -62,7 +69,7 @@
                         </div>
 
                         {{-- Número completo --}}
-                        <div class="form-group">
+                        <div class="conv-group">
                             <label>Número procedimiento</label>
                             <input type="text"
                                    id="num_procedimiento"
@@ -72,7 +79,7 @@
                         </div>
 
                         {{-- Nombre --}}
-                        <div class="form-group full">
+                        <div class="conv-group full">
                             <label>Nombre procedimiento</label>
                             <input type="text"
                                    id="nombre_procedimiento"
@@ -82,7 +89,7 @@
                         </div>
 
                         {{-- Fecha --}}
-                        <div class="form-group">
+                        <div class="conv-group">
                             <label>Fecha apertura</label>
                             <input type="date"
                                    id="fecha_apertura"
@@ -91,7 +98,7 @@
                         </div>
 
                         {{-- Correo --}}
-                        <div class="form-group">
+                        <div class="conv-group">
                             <label>Correo comprador</label>
                             <input type="email"
                                    name="correo_comprador"
@@ -99,7 +106,7 @@
                         </div>
 
                         {{-- Revisó --}}
-                        <div class="form-group">
+                        <div class="conv-group">
                             <label>Revisó</label>
 
                             <select name="reviso_id" required>
@@ -115,7 +122,7 @@
                         </div>
 
                         {{-- Elaboró --}}
-                        <div class="form-group">
+                        <div class="conv-group">
                             <label>Elaboró</label>
                             <input type="text"
                                    name="elaboro"
@@ -124,16 +131,13 @@
                         </div>
 
                     </div>
+                </div>
 
-                    <div class="form-actions">
-                        <button type="submit" class="btn-primary">
-                            Generar documento
-                        </button>
-                    </div>
+                <button type="submit" class="conv-btn">
+                    Generar documento
+                </button>
 
-                </form>
-
-            </div>
+            </form>
 
         </div>
 

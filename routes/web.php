@@ -14,6 +14,7 @@ use App\Http\Controllers\AcPreguntaController;
 use App\Http\Controllers\AclaracionController;
 use App\Http\Controllers\ActaCierreController;
 use App\Http\Controllers\NoAplicaController;
+use App\Http\Controllers\AperturaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -164,6 +165,21 @@ Route::middleware(['auth'])->group(function () {
 
         Route::post('/no-aplica-junta/generar', [NoAplicaController::class, 'generar'])
             ->name('noaplica.generar');
+
+        /*
+        |--------------------------------------------------------------------------
+        | apertura
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/apertura', [AperturaController::class, 'index'])
+            ->name('apertura.index');
+
+        Route::get('/apertura/buscar/{valor}', [AperturaController::class, 'buscarProcedimiento'])
+            ->name('apertura.buscar');
+
+        Route::post('/apertura/generar', [AperturaController::class, 'generar'])
+            ->name('apertura.generar');
     });
 
     /*

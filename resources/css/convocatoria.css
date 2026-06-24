@@ -1,10 +1,20 @@
 /* CONTENEDOR GENERAL */
-.conv-title {
-    margin-bottom: 20px;
+.conv-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
 }
 
-/* CARD */
+/* FORMULARIO */
+.conv-form {
+    width: 100%;
+    max-width: 850px; /* Cambia este valor si lo quieres más ancho o más angosto */
+    margin: 0 auto;
+}
+
+/* TARJETAS */
 .conv-card {
+    width: 100%;
     background: #ffffff;
     padding: 25px;
     border-radius: 10px;
@@ -43,16 +53,22 @@
     color: #555;
 }
 
-/* INPUTS */
-.conv-group input {
+/* INPUTS Y SELECTS */
+.conv-group input,
+.conv-group select,
+.conv-group textarea {
+    width: 100%;
     padding: 10px;
     border-radius: 6px;
     border: 1px solid #ccc;
     font-size: 14px;
     transition: 0.2s;
+    box-sizing: border-box;
 }
 
-.conv-group input:focus {
+.conv-group input:focus,
+.conv-group select:focus,
+.conv-group textarea:focus {
     border-color: #007bff;
     outline: none;
 }
@@ -71,16 +87,11 @@
 .conv-btn:hover {
     background: #0056b3;
 }
-
-.conv-wrapper {
+/* TÍTULO DEL FORMULARIO */
+.conv-title {
+    text-align: center;
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 25px 0;
     width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-}
-
-/* centra el formulario correctamente */
-.conv-form {
-    max-width: 1100px;
-    margin: 0 auto;
 }

@@ -10,6 +10,8 @@
 
         <div class="conv-wrapper">
 
+        <form class="conv-form">
+
             <h2 class="conv-title">
                 Acta de Junta de Aclaraciones
             </h2>

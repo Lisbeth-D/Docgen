@@ -10,10 +10,10 @@
 
         <div class="conv-wrapper">
 
-            <h2 class="conv-title">Formulario de Designación</h2>
-
             <form action="{{ route('designacion.generar') }}" method="POST" enctype="multipart/form-data" class="conv-form">
-                @csrf
+            @csrf
+
+            <h2 class="conv-title">Formulario de Designación</h2>
 
                 <!-- WORD -->
                 <div class="conv-card">

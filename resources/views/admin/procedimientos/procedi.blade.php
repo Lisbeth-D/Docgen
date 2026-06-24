@@ -40,11 +40,11 @@
 
                             <td>{{ $p->num_procedimiento }}</td>
 
-                            <td>{{ $p->user_id }}</td>
+                            <td>{{ $p->comprador->name ?? $p->comprador->username ?? 'Sin asignar' }}</td>
 
-                            <td>{{ $p->id_persona }}</td>
+                            <td>{{ $p->persona->nombre ?? 'Sin asignar' }}</td>
 
-                            <td>Área Técnica</td>
+                            <td>{{ $p->persona->cargo ?? 'Sin asignar' }}</td>
 
                             <td class="monto">
                                 ${{ number_format($p->monto_maximo, 2) }}

@@ -10,7 +10,11 @@
 
         <div class="conv-wrapper">
 
-            <h2 class="conv-title">Junta de Aclaraciones pregunta</h2>
+    <form class="conv-form">
+
+        <h2 class="conv-title">
+            Junta de Aclaraciones pregunta
+        </h2>
 
             <form action="{{ route('ac.generar') }}" method="POST" enctype="multipart/form-data">
                 @csrf

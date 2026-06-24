@@ -10,10 +10,9 @@
 
         <div class="conv-wrapper">
 
-            <h2 class="conv-title">Formulario de Revisión</h2>
-
             <form action="{{ route('revision.generar') }}" method="POST" enctype="multipart/form-data" class="conv-form">
                 @csrf
+            <h2 class="conv-title">Formulario de Revisión</h2>
 
                 <!-- WORD -->
                 <div class="conv-card">
