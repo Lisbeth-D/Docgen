@@ -16,18 +16,18 @@
         <img src="{{ asset('img/logo.png') }}" alt="Logo">
 
         @if(Auth::check())
-        <div class="header-user">
-            <div class="user-box" onclick="toggleUserMenu()">
-                👤 {{ Auth::user()->username }}
-            </div>
+            <div class="header-user">
+                <div class="user-box" onclick="toggleUserMenu()">
+                    👤 {{ Auth::user()->username }}
+                </div>
 
-            <div class="user-dropdown" id="userDropdown">
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit">Cerrar sesión</button>
-                </form>
+                <div class="user-dropdown" id="userDropdown">
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit">Cerrar sesión</button>
+                    </form>
+                </div>
             </div>
-        </div>
         @endif
 
     </header>
@@ -45,35 +45,90 @@
 </div>
 
 <script>
+function toggleById(id) {
+    const element = document.getElementById(id);
+
+    if (element) {
+        element.classList.toggle("open");
+    }
+}
+
+function closeById(id) {
+    const element = document.getElementById(id);
+
+    if (element) {
+        element.classList.remove("open");
+    }
+}
+
 function toggleSidebar() {
-    document.getElementById("sidebar").classList.toggle("collapsed");
-}
+    const sidebar = document.getElementById("sidebar");
 
-function toggleOficios() {
-    document.getElementById("oficiosSubmenu").classList.toggle("open");
-}
-
-function toggleAclaraciones() {
-    document.getElementById("aclaracionesSubmenu").classList.toggle("open");
-}
-
-function toggleSiAplica() {
-    document.getElementById("siAplicaSubmenu").classList.toggle("open");
-}
-
-function toggleConfig(){
-document.getElementById("configSubmenu").classList.toggle("open");
-}
-
-function toggleReportes(){
-document.getElementById("reportesSubmenu").classList.toggle("open");
+    if (sidebar) {
+        sidebar.classList.toggle("collapsed");
+    }
 }
 
 function toggleUserMenu() {
-    document.getElementById("userDropdown").classList.toggle("show");
+    const userDropdown = document.getElementById("userDropdown");
+
+    if (userDropdown) {
+        userDropdown.classList.toggle("show");
+    }
 }
 
-feather.replace();
+/* =========================
+   MENÚ COMPRADOR
+========================= */
+
+function toggleOficios() {
+    closeById("aclaracionesSubmenu");
+    closeById("siAplicaSubmenu");
+    closeById("falloSubmenu");
+
+    toggleById("oficiosSubmenu");
+}
+
+function toggleAclaraciones() {
+    closeById("oficiosSubmenu");
+    closeById("falloSubmenu");
+
+    toggleById("aclaracionesSubmenu");
+}
+
+function toggleSiAplica() {
+    toggleById("siAplicaSubmenu");
+}
+
+function toggleFallo() {
+    closeById("oficiosSubmenu");
+    closeById("aclaracionesSubmenu");
+    closeById("siAplicaSubmenu");
+
+    toggleById("falloSubmenu");
+}
+
+/* =========================
+   MENÚ ADMIN
+========================= */
+
+function toggleConfig() {
+    closeById("reportesSubmenu");
+
+    toggleById("configSubmenu");
+}
+
+function toggleReportes() {
+    closeById("configSubmenu");
+
+    toggleById("reportesSubmenu");
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    if (typeof feather !== "undefined") {
+        feather.replace();
+    }
+});
 </script>
 
 </body>

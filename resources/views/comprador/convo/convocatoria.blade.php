@@ -22,7 +22,7 @@
                         <input type="file" name="archivo_word" accept=".docx" required>
                     </div>
                 </div>
-
+                
                 <!-- DATOS PRINCIPALES -->
                 <div class="conv-card">
                     <h3>Datos principales</h3>

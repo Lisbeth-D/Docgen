@@ -15,6 +15,7 @@ use App\Http\Controllers\AclaracionController;
 use App\Http\Controllers\ActaCierreController;
 use App\Http\Controllers\NoAplicaController;
 use App\Http\Controllers\AperturaController;
+use App\Http\Controllers\FalloController;
 
 /*
 |--------------------------------------------------------------------------
@@ -180,6 +181,25 @@ Route::middleware(['auth'])->group(function () {
 
         Route::post('/apertura/generar', [AperturaController::class, 'generar'])
             ->name('apertura.generar');
+
+         /*
+        |--------------------------------------------------------------------------
+        | fallo
+        |--------------------------------------------------------------------------
+        */
+
+
+        Route::get('/fallo/acta', [FalloController::class, 'indexActa'])
+        ->name('fallo.acta.index');
+
+        Route::post('/fallo/acta/generar', [FalloController::class, 'generarActa'])
+            ->name('fallo.acta.generar');
+
+        Route::get('/fallo/buscar/{valor}', [FalloController::class, 'buscarProcedimiento']);
+
+        Route::get('/fallo/dictamen', function () {
+            return view('comprador.Fallo.dictamenFallo');
+        })->name('fallo.dictamen.index');
     });
 
     /*
