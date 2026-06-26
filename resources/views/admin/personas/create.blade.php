@@ -65,16 +65,15 @@
                                 <option value="">Selecciona un área</option>
 
                                 @foreach($areas as $area)
-                                    <option value="{{ $area->id }}"
-                                        {{ old('area_id') == $area->id ? 'selected' : '' }}>
+                                    <option value="{{ $area->id_area }}"
+                                        {{ old('area_id') == $area->id_area ? 'selected' : '' }}>
                                         {{ $area->nombre }}
                                     </option>
                                 @endforeach
-
                             </select>
                         </div>
 
-                        {{-- 🔥 PLANTILLA DE REFERENCIA (NUEVO) --}}
+                        {{-- PLANTILLA DE REFERENCIA --}}
                         <div class="form-group full">
                             <label>Plantilla de referencia</label>
                             <input 

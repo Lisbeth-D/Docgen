@@ -10,14 +10,14 @@ class Persona extends Model
         'nombre',
         'cargo',
         'area_id',
-        'plantilla_referencia', 
+        'plantilla_referencia',
     ];
 
     /**
-     * Relación con área
+     * Relación con el área.
      */
     public function area()
     {
-        return $this->belongsTo(Area::class);
+        return $this->belongsTo(Area::class, 'area_id', 'id_area');
     }
 }

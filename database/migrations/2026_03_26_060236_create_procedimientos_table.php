@@ -49,7 +49,7 @@ return new class extends Migration
             $table->time('hora_fallo')->nullable();
 
             $table->date('fecha_inicio_contrato')->nullable();
-            $table->time('fecha_termino_contrato')->nullable();
+            $table->date('fecha_fin_contrato')->nullable();
 
             $table->timestamps();
         });

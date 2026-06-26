@@ -6,28 +6,17 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::table('personas', function (Blueprint $table) {
-            $table->foreignId('area_id')
-                  ->nullable()
-                  ->after('cargo')
-                  ->constrained('areas', 'id_area')
-                  ->nullOnDelete();
+            $table->string('plantilla_referencia')->nullable()->after('area_id');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::table('personas', function (Blueprint $table) {
-            $table->dropForeign(['area_id']);
-            $table->dropColumn('area_id');
+            $table->dropColumn('plantilla_referencia');
         });
     }
 };

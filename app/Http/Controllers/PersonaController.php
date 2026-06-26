@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Persona;
-use Illuminate\Http\Request;
 use App\Models\Area;
+use Illuminate\Http\Request;
 
 class PersonaController extends Controller
 {
@@ -44,7 +44,7 @@ class PersonaController extends Controller
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
             'cargo' => 'required|string|max:255',
-            'area_id' => 'required|exists:areas,id',
+            'area_id' => 'required|exists:areas,id_area',
             'plantilla_referencia' => 'required|string|max:255',
         ]);
 
@@ -73,7 +73,7 @@ class PersonaController extends Controller
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
             'cargo' => 'required|string|max:255',
-            'area_id' => 'required|exists:areas,id',
+            'area_id' => 'required|exists:areas,id_area',
             'plantilla_referencia' => 'required|string|max:255',
         ]);
 
