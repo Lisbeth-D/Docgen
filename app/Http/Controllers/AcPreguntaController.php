@@ -14,40 +14,111 @@ class AcPreguntaController extends Controller
 {
     public function index()
     {
-        $areasRequirentes = Area::whereNotIn('nombre', [
-                'OIC Ofi centrales',
-                'Juridico Ofi centrales'
-            ])
-            ->with(['personas' => function ($query) {
+        $areasRequirentes = Area::with(['personas' => function ($query) {
                 $query->orderBy('nombre');
             }])
+            ->whereNotIn('id_area', [4, 14, 15])
             ->orderBy('nombre')
             ->get();
 
-        $personasContratante = Persona::whereHas('area', function ($query) {
-                $query->where('nombre', 'Coordinación de Adquisiciones y Servicios');
-            })
+        $areasContrato = Area::with(['personas' => function ($query) {
+                $query->orderBy('nombre');
+            }])
+            ->whereIn('nombre', [
+                'Gerencia',
+                'Subgerencia de Operaciones',
+                'Subgerencia de Abasto'
+            ])
             ->orderBy('nombre')
             ->get();
 
-        $personasOic = Persona::whereHas('area', function ($query) {
-                $query->where('nombre', 'OIC Ofi centrales');
-            })
+        $personasContratante = Persona::where('area_id', 4)
             ->orderBy('nombre')
             ->get();
 
-        $personasJuridico = Persona::whereHas('area', function ($query) {
-                $query->where('nombre', 'Juridico Ofi centrales');
-            })
+        $personasOic = Persona::where('area_id', 14)
+            ->orderBy('nombre')
+            ->get();
+
+        $personasJuridico = Persona::where('area_id', 15)
             ->orderBy('nombre')
             ->get();
 
         return view('comprador.aclaracion.ac_pregunta', compact(
             'areasRequirentes',
+            'areasContrato',
             'personasContratante',
             'personasOic',
             'personasJuridico'
         ));
+    }
+
+    private function crearTextoPersona($persona)
+    {
+        $textRun = new \PhpOffice\PhpWord\Element\TextRun();
+
+        if (!$persona) {
+            return $textRun;
+        }
+
+        $textRun->addText(trim($persona->nombre), [
+            'name' => 'Noto Sans',
+            'size' => 10,
+            'bold' => true,
+        ]);
+
+        $textRun->addText(', ' . trim($persona->cargo), [
+            'name' => 'Noto Sans',
+            'size' => 10,
+            'bold' => false,
+        ]);
+
+        return $textRun;
+    }
+
+    private function crearTextoComprador($usuario)
+    {
+        $textRun = new \PhpOffice\PhpWord\Element\TextRun();
+
+        if (!$usuario) {
+            return $textRun;
+        }
+
+        $textRun->addText(trim($usuario->name), [
+            'name' => 'Noto Sans',
+            'size' => 10,
+            'bold' => true,
+        ]);
+
+        if (!empty($usuario->cargo)) {
+            $textRun->addText(' / ' . trim($usuario->cargo), [
+                'name' => 'Noto Sans',
+                'size' => 10,
+                'bold' => false,
+            ]);
+        }
+
+        return $textRun;
+    }
+
+    private function normalizarSiPresento($valor)
+    {
+        $valor = strtoupper(trim($valor ?? 'NO'));
+
+        $valor = str_replace(
+            ['Á', 'É', 'Í', 'Ó', 'Ú'],
+            ['A', 'E', 'I', 'O', 'U'],
+            $valor
+        );
+
+        return in_array($valor, [
+            'SI',
+            'SI PRESENTO',
+            'SI PRESENTO PREGUNTAS',
+            'SÍ',
+            'SÍ PRESENTÓ',
+            'SÍ PRESENTÓ PREGUNTAS'
+        ]);
     }
 
     public function buscarProcedimiento($valor)
@@ -77,20 +148,29 @@ class AcPreguntaController extends Controller
     public function generar(Request $request)
     {
         $request->validate([
-            'numero_busqueda'      => 'required',
-            'num_procedimiento'    => 'nullable',
-            'nombre_procedimiento' => 'nullable',
-            'fecha_ac'             => 'nullable|date',
-            'hora_ac'              => 'nullable',
-            'area_requirente'      => 'required|exists:personas,id',
-            'area_contratante'     => 'required|exists:personas,id',
-            'persona_oic'          => 'nullable|exists:personas,id',
-            'persona_juridico'     => 'nullable|exists:personas,id',
-            'ref_oic'              => 'nullable',
-            'ref_juridico'         => 'nullable',
-            'participantes'        => 'nullable|array',
-            'preguntas'            => 'nullable|array',
-            'archivo_word'         => 'required|file|mimes:docx'
+            'numero_busqueda'             => 'required',
+            'num_procedimiento'           => 'nullable',
+            'nombre_procedimiento'        => 'nullable',
+            'fecha_ac'                    => 'nullable|date',
+            'hora_ac'                     => 'nullable',
+
+            'area_requirente'             => 'required|exists:personas,id',
+            'area_contratante'            => 'required|exists:personas,id',
+            'admi_contrato'               => 'required|exists:personas,id',
+
+            'numero_oficio_preguntas'     => 'required|numeric',
+            'numero_oficio_respuestas'    => 'required|numeric',
+            'fecha_oficio_preguntas'      => 'required|date',
+            'fecha_oficio_respuestas'     => 'required|date',
+
+            'persona_oic'                 => 'nullable|exists:personas,id',
+            'persona_juridico'            => 'nullable|exists:personas,id',
+            'ref_oic'                     => 'nullable',
+            'ref_juridico'                => 'nullable',
+
+            'participantes'               => 'nullable|array',
+            'preguntas'                   => 'nullable|array',
+            'archivo_word'                => 'required|file|mimes:docx'
         ]);
 
         $proc = Procedimiento::where(
@@ -139,19 +219,36 @@ class AcPreguntaController extends Controller
 
         $areaReq = Persona::find($request->area_requirente);
         $areaCont = Persona::find($request->area_contratante);
+        $admiContrato = Persona::find($request->admi_contrato);
         $oic = Persona::find($request->persona_oic);
         $juridico = Persona::find($request->persona_juridico);
 
-        $areaReqTexto = $areaReq ? trim($areaReq->nombre . '.- ' . $areaReq->cargo) : '';
-        $areaContTexto = $areaCont ? trim($areaCont->nombre . '.- ' . $areaCont->cargo) : '';
-        $oicTexto = $oic ? trim($oic->nombre . '.- ' . $oic->cargo) : '';
-        $juridicoTexto = $juridico ? trim($juridico->nombre . '.- ' . $juridico->cargo) : '';
+        $areaRequirenteNombre = Area::find($areaReq->area_id)?->nombre ?? '';
+        $areaAdmiContratoNombre = Area::find($admiContrato->area_id)?->nombre ?? '';
 
-        /*
-        |--------------------------------------------------------------------------
-        | PARTICIPANTES Y PREGUNTAS AGRUPADAS POR LICITANTE
-        |--------------------------------------------------------------------------
-        */
+        $oficioPreguntas = str_replace(
+            '{NUMERO}',
+            $request->numero_oficio_preguntas,
+            $areaCont->plantilla_referencia
+        );
+
+        $oficioRespuestas = str_replace(
+            '{NUMERO}',
+            $request->numero_oficio_respuestas,
+            $areaReq->plantilla_referencia
+        );
+
+        $fechaOficioPreguntas = Carbon::parse($request->fecha_oficio_preguntas);
+        $fechaOficioPreguntasTexto = $fechaOficioPreguntas->day . ' de ' . $fechaOficioPreguntas->translatedFormat('F') . ' de ' . $fechaOficioPreguntas->year;
+
+        $fechaOficioRespuestas = Carbon::parse($request->fecha_oficio_respuestas);
+        $fechaOficioRespuestasTexto = $fechaOficioRespuestas->day . ' de ' . $fechaOficioRespuestas->translatedFormat('F') . ' de ' . $fechaOficioRespuestas->year;
+
+        $areaReqTexto = $this->crearTextoPersona($areaReq);
+        $areaContTexto = $this->crearTextoPersona($areaCont);
+        $admiContratoTexto = $this->crearTextoPersona($admiContrato);
+        $oicTexto = $this->crearTextoPersona($oic);
+        $juridicoTexto = $this->crearTextoPersona($juridico);
 
         $participantes = array_values(array_filter(
             $request->participantes ?? [],
@@ -160,21 +257,17 @@ class AcPreguntaController extends Controller
 
         $licitantesConPreguntas = [];
 
-        foreach ($participantes as $index => $participante) {
-            $presento = strtoupper($participante['pregunta'] ?? 'NO');
+        foreach ($participantes as $participante) {
+            $siPresento = $this->normalizarSiPresento($participante['pregunta'] ?? 'NO');
 
             $preguntasParticipante = array_values(array_filter(
                 $participante['preguntas'] ?? [],
                 fn ($p) => !empty($p['pregunta'])
             ));
 
-            /*
-             * Compatibilidad con el formulario anterior:
-             * Si todavía mandas preguntas generales, se asignan al primer participante que dijo SI.
-             */
             if (
                 empty($preguntasParticipante)
-                && $presento === 'SI'
+                && $siPresento
                 && empty($licitantesConPreguntas)
                 && !empty($request->preguntas)
             ) {
@@ -184,7 +277,7 @@ class AcPreguntaController extends Controller
                 ));
             }
 
-            if ($presento === 'SI' && count($preguntasParticipante) > 0) {
+            if ($siPresento && count($preguntasParticipante) > 0) {
                 $licitantesConPreguntas[] = [
                     'empresa'   => trim($participante['nombre']),
                     'preguntas' => $preguntasParticipante,
@@ -192,11 +285,35 @@ class AcPreguntaController extends Controller
             }
         }
 
-        $numSolicitudes = 0;
+        $totalPreguntas = 0;
 
         foreach ($licitantesConPreguntas as $licitante) {
-            $numSolicitudes += count($licitante['preguntas']);
+            $totalPreguntas += count($licitante['preguntas']);
         }
+
+        $numerosTextoPreguntas = [
+            0 => 'cero',
+            1 => 'una',
+            2 => 'dos',
+            3 => 'tres',
+            4 => 'cuatro',
+            5 => 'cinco',
+            6 => 'seis',
+            7 => 'siete',
+            8 => 'ocho',
+            9 => 'nueve',
+            10 => 'diez'
+        ];
+
+        $textoNumeroPreguntas = $numerosTextoPreguntas[$totalPreguntas] ?? $totalPreguntas;
+
+        if ($totalPreguntas == 1) {
+            $textoTotalPreguntas = 'La única pregunta recibida';
+        } else {
+            $textoTotalPreguntas = "Las {$totalPreguntas} ({$textoNumeroPreguntas}) preguntas recibidas";
+        }
+
+        $totalEmpresas = count($licitantesConPreguntas);
 
         $numerosTexto = [
             0 => 'CERO',
@@ -212,47 +329,52 @@ class AcPreguntaController extends Controller
             10 => 'DIEZ'
         ];
 
-        $textoNumero = $numerosTexto[$numSolicitudes] ?? $numSolicitudes;
+        $textoNumero = $numerosTexto[$totalEmpresas] ?? $totalEmpresas;
 
-        $textoSolicitudes = $numSolicitudes . ' (' . $textoNumero . ') ' .
-            ($numSolicitudes == 1 ? 'solicitud' : 'solicitudes');
-
-        /*
-        |--------------------------------------------------------------------------
-        | DATOS GENERALES
-        |--------------------------------------------------------------------------
-        */
+        if ($totalEmpresas == 1) {
+            $textoSolicitudes = "se recibió {$totalEmpresas} ({$textoNumero}) solicitud";
+        } else {
+            $textoSolicitudes = "se recibieron {$totalEmpresas} ({$textoNumero}) solicitudes";
+        }
 
         $templateProcessor->setValue('num_procedimiento', $request->num_procedimiento ?: $proc->num_procedimiento);
         $templateProcessor->setValue('nombre_procedimiento', $request->nombre_procedimiento ?: $proc->nombre_procedimiento);
 
         $templateProcessor->setValue('hora_inicio', $horaInicioTexto);
         $templateProcessor->setValue('fecha_ac', $fechaACTexto);
-
         $templateProcessor->setValue('hora_cierre', $horaCierreTexto);
         $templateProcessor->setValue('hora_reanudacion', $horaReanudacionTexto);
         $templateProcessor->setValue('fecha_apertura', $fechaHoraApertura);
 
-        $templateProcessor->setValue('area_requirente', $areaReqTexto);
-        $templateProcessor->setValue('area_contratante', $areaContTexto);
+        $templateProcessor->setValue('oficio_preguntas', $oficioPreguntas);
+        $templateProcessor->setValue('fecha_oficio_preguntas', $fechaOficioPreguntasTexto);
+        $templateProcessor->setValue('oficio_respuestas', $oficioRespuestas);
+        $templateProcessor->setValue('fecha_oficio_respuestas', $fechaOficioRespuestasTexto);
 
-        $templateProcessor->setValue('persona_oic', $oicTexto);
-        $templateProcessor->setValue('persona_juridico', $juridicoTexto);
+        $templateProcessor->setValue('texto_total_preguntas', $textoTotalPreguntas);
+
+        $templateProcessor->setComplexValue('area_requirente', $areaReqTexto);
+        $templateProcessor->setValue('area_area_requirente', $areaRequirenteNombre);
+
+        $templateProcessor->setComplexValue('area_contratante', $areaContTexto);
+
+        $templateProcessor->setComplexValue('admi_contrato', $admiContratoTexto);
+        $templateProcessor->setValue('area_admi_contrato', $areaAdmiContratoNombre);
+
+        $templateProcessor->setComplexValue('persona_oic', $oicTexto);
+        $templateProcessor->setComplexValue('persona_juridico', $juridicoTexto);
 
         $templateProcessor->setValue('ref_oic', $request->ref_oic ?? '');
         $templateProcessor->setValue('ref_juridico', $request->ref_juridico ?? '');
 
         $templateProcessor->setValue('solicitudes', $textoSolicitudes);
-        $templateProcessor->setValue('comprador', Auth::user()->name ?? '');
+        $templateProcessor->setComplexValue('comprador', $this->crearTextoComprador(Auth::user()));
 
-        /*
-        |--------------------------------------------------------------------------
-        | TABLA 1: TODOS LOS PARTICIPANTES
-        | Etiquetas en Word:
-        | ${empresa_interes}
-        | ${presento_preguntas}
-        |--------------------------------------------------------------------------
-        */
+        $templateProcessor->setComplexValue('admi_contrato_tabla', $this->crearTextoPersona($admiContrato));
+        $templateProcessor->setComplexValue('area_requirente_tabla', $this->crearTextoPersona($areaReq));
+        $templateProcessor->setComplexValue('comprador_tabla', $this->crearTextoComprador(Auth::user()));
+        $templateProcessor->setComplexValue('persona_oic_tabla', $this->crearTextoPersona($oic));
+        $templateProcessor->setComplexValue('persona_juridico_tabla', $this->crearTextoPersona($juridico));
 
         if (count($participantes) > 0) {
             $templateProcessor->cloneRow('empresa_interes', count($participantes));
@@ -260,7 +382,7 @@ class AcPreguntaController extends Controller
             foreach ($participantes as $i => $participante) {
                 $index = $i + 1;
 
-                $presento = strtoupper($participante['pregunta'] ?? 'NO') === 'SI'
+                $presento = $this->normalizarSiPresento($participante['pregunta'] ?? 'NO')
                     ? 'SÍ PRESENTÓ'
                     : 'NO PRESENTÓ';
 
@@ -268,15 +390,6 @@ class AcPreguntaController extends Controller
                 $templateProcessor->setValue("presento_preguntas#{$index}", $presento);
             }
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | TABLA 2: SOLO LICITANTES QUE PRESENTARON PREGUNTAS
-        | Etiquetas en Word:
-        | ${empresa_resumen}
-        | ${numero_preguntas}
-        |--------------------------------------------------------------------------
-        */
 
         if (count($licitantesConPreguntas) > 0) {
             $templateProcessor->cloneRow('empresa_resumen', count($licitantesConPreguntas));
@@ -287,111 +400,67 @@ class AcPreguntaController extends Controller
                 $templateProcessor->setValue("empresa_resumen#{$index}", $licitante['empresa']);
                 $templateProcessor->setValue("numero_preguntas#{$index}", count($licitante['preguntas']));
             }
-        } else {
-            $templateProcessor->setValue('empresa_resumen', '');
-            $templateProcessor->setValue('numero_preguntas', '');
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | BLOQUE DE PREGUNTAS POR LICITANTE
-        | Etiqueta en Word:
-        | ${bloque_preguntas}
-        |--------------------------------------------------------------------------
-        */
-
-        $bloquePreguntas = new \PhpOffice\PhpWord\Element\TextRun();
+        $tablaPreguntas = new \PhpOffice\PhpWord\Element\Table([
+            'borderSize' => 6,
+            'borderColor' => '000000',
+            'cellMargin' => 80,
+        ]);
 
         foreach ($licitantesConPreguntas as $licitante) {
+            $tablaPreguntas->addRow();
 
-            $bloquePreguntas->addText(
-                'Licitante: ' . $licitante['empresa'],
-                [
-                    'name' => 'Noto Sans',
-                    'size' => 10,
-                    'bold' => true,
-                ]
-            );
-
-            $bloquePreguntas->addTextBreak(1);
-
-            $tabla = new \PhpOffice\PhpWord\Element\Table([
-                'borderSize' => 6,
-                'borderColor' => '000000',
-                'cellMargin' => 80,
+            $tablaPreguntas->addCell(9400, [
+                'gridSpan' => 3,
+                'bgColor' => 'D9D9D9',
+            ])->addText(strtoupper($licitante['empresa']), [
+                'name' => 'Noto Sans',
+                'size' => 10,
+                'bold' => true,
             ]);
 
-            // ENCABEZADOS
-            $tabla->addRow();
+            $tablaPreguntas->addRow();
 
-            $tabla->addCell(800, ['bgColor' => 'D9D9D9'])->addText(
-                'No.',
-                [
-                    'name' => 'Noto Sans',
-                    'size' => 9,
-                    'bold' => true,
-                ]
-            );
+            $tablaPreguntas->addCell(800, ['bgColor' => 'D9D9D9'])->addText('No.', [
+                'name' => 'Noto Sans',
+                'size' => 9,
+                'bold' => true,
+            ]);
 
-            $tabla->addCell(4300, ['bgColor' => 'D9D9D9'])->addText(
-                'Preguntas',
-                [
-                    'name' => 'Noto Sans',
-                    'size' => 9,
-                    'bold' => true,
-                ]
-            );
+            $tablaPreguntas->addCell(4300, ['bgColor' => 'D9D9D9'])->addText('Preguntas', [
+                'name' => 'Noto Sans',
+                'size' => 9,
+                'bold' => true,
+            ]);
 
-            $tabla->addCell(4300, ['bgColor' => 'D9D9D9'])->addText(
-                'Respuestas',
-                [
-                    'name' => 'Noto Sans',
-                    'size' => 9,
-                    'bold' => true,
-                ]
-            );
+            $tablaPreguntas->addCell(4300, ['bgColor' => 'D9D9D9'])->addText('Respuestas', [
+                'name' => 'Noto Sans',
+                'size' => 9,
+                'bold' => true,
+            ]);
 
             foreach ($licitante['preguntas'] as $i => $pregunta) {
-                $numero = $i + 1;
+                $tablaPreguntas->addRow();
 
-                $tabla->addRow();
+                $tablaPreguntas->addCell(800)->addText($i + 1, [
+                    'name' => 'Noto Sans',
+                    'size' => 10,
+                ]);
 
-                $tabla->addCell(800)->addText(
-                    $numero,
-                    [
-                        'name' => 'Noto Sans',
-                        'size' => 10,
-                    ]
-                );
+                $tablaPreguntas->addCell(4300)->addText(trim($pregunta['pregunta']), [
+                    'name' => 'Noto Sans',
+                    'size' => 10,
+                ]);
 
-                $tabla->addCell(4300)->addText(
-                    trim($pregunta['pregunta']),
-                    [
-                        'name' => 'Noto Sans',
-                        'size' => 10,
-                    ]
-                );
-
-                $tabla->addCell(4300)->addText(
-                    strtoupper(trim($pregunta['respuesta'] ?? '')),
-                    [
-                        'name' => 'Noto Sans',
-                        'size' => 10,
-                    ]
-                );
+                $tablaPreguntas->addCell(4300)->addText(strtoupper(trim($pregunta['respuesta'] ?? '')), [
+                    'name' => 'Noto Sans',
+                    'size' => 10,
+                ]);
             }
-
-            $bloquePreguntas->addElement($tabla);
-            $bloquePreguntas->addTextBreak(2);
         }
 
-        $templateProcessor->setComplexBlock('bloque_preguntas', $bloquePreguntas);
-
-        /*
-        |--------------------------------------------------------------------------
-        | GUARDAR
-        |--------------------------------------------------------------------------
-        */
+        $templateProcessor->setComplexBlock('bloque_preguntas', $tablaPreguntas);
 
         $outputDir = storage_path('app/public/documentos');
 

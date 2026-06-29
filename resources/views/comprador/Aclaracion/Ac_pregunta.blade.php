@@ -10,14 +10,12 @@
 
         <div class="conv-wrapper">
 
-    <form class="conv-form">
-
-        <h2 class="conv-title">
-            Junta de Aclaraciones pregunta
-        </h2>
-
-            <form action="{{ route('ac.generar') }}" method="POST" enctype="multipart/form-data">
+            <form action="{{ route('ac.generar') }}" method="POST" enctype="multipart/form-data" class="conv-form">
                 @csrf
+
+                <h2 class="conv-title">
+                    Junta de Aclaraciones pregunta
+                </h2>
 
                 <!-- ARCHIVO WORD -->
                 <div class="conv-card">
@@ -92,7 +90,7 @@
                                 <option value="">Seleccionar área</option>
 
                                 @foreach($areasRequirentes as $area)
-                                    <option value="{{ $area->id }}">
+                                    <option value="{{ $area->id_area }}">
                                         {{ $area->nombre }}
                                     </option>
                                 @endforeach
@@ -117,6 +115,69 @@
                                     </option>
                                 @endforeach
                             </select>
+                        </div>
+
+                        <div class="conv-group">
+                            <label>Área del administrador del contrato</label>
+                            <select id="area_contrato_select" required>
+                                <option value="">Seleccionar área</option>
+
+                                @foreach($areasContrato as $area)
+                                    <option value="{{ $area->id_area }}">
+                                        {{ $area->nombre }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="conv-group">
+                            <label>Administrador del contrato</label>
+                            <select name="admi_contrato" id="persona_contrato_select" required>
+                                <option value="">Primero seleccione un área</option>
+                            </select>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- OFICIOS DE PREGUNTAS Y RESPUESTAS -->
+                <div class="conv-card">
+                    <h3>Oficios de Preguntas y Respuestas</h3>
+
+                    <div class="conv-grid">
+
+                        <div class="conv-group">
+                            <label>No. de oficio mediante el cual se remitieron las preguntas</label>
+                            <input
+                                type="number"
+                                name="numero_oficio_preguntas"
+                                placeholder="Ej. 132"
+                                required>
+                        </div>
+
+                        <div class="conv-group">
+                            <label>Fecha del oficio de remisión de preguntas</label>
+                            <input
+                                type="date"
+                                name="fecha_oficio_preguntas"
+                                required>
+                        </div>
+
+                        <div class="conv-group">
+                            <label>No. de oficio mediante el cual se remitieron las respuestas</label>
+                            <input
+                                type="number"
+                                name="numero_oficio_respuestas"
+                                placeholder="Ej. 122"
+                                required>
+                        </div>
+
+                        <div class="conv-group">
+                            <label>Fecha del oficio de respuestas</label>
+                            <input
+                                type="date"
+                                name="fecha_oficio_respuestas"
+                                required>
                         </div>
 
                     </div>
@@ -183,7 +244,9 @@
                     <div id="participantes_container"></div>
                 </div>
 
-                <button class="conv-btn">Generar Documento</button>
+                <button class="conv-btn" type="submit">
+                    Generar Documento
+                </button>
 
             </form>
 
@@ -197,6 +260,7 @@
 document.addEventListener('DOMContentLoaded', function () {
 
     const areasRequirentes = @json($areasRequirentes);
+    const areasContrato = @json($areasContrato);
 
     const inputBusqueda = document.getElementById('busqueda_proc');
     const inputNum = document.getElementById('num_procedimiento');
@@ -262,7 +326,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        const area = areasRequirentes.find(a => a.id === areaId);
+        const area = areasRequirentes.find(a => Number(a.id_area) === areaId);
 
         if (!area || !area.personas || area.personas.length === 0) {
             personaSelect.innerHTML = '<option value="">Sin personas registradas</option>';
@@ -274,6 +338,36 @@ document.addEventListener('DOMContentLoaded', function () {
             option.value = persona.id;
             option.textContent = `${persona.nombre} - ${persona.cargo}`;
             personaSelect.appendChild(option);
+        });
+
+    });
+
+    const areaContratoSelect = document.getElementById('area_contrato_select');
+    const personaContratoSelect = document.getElementById('persona_contrato_select');
+
+    areaContratoSelect.addEventListener('change', function () {
+
+        const areaId = parseInt(this.value);
+
+        personaContratoSelect.innerHTML = '<option value="">Seleccionar persona</option>';
+
+        if (!areaId) {
+            personaContratoSelect.innerHTML = '<option value="">Primero seleccione un área</option>';
+            return;
+        }
+
+        const area = areasContrato.find(a => Number(a.id_area) === areaId);
+
+        if (!area || !area.personas || area.personas.length === 0) {
+            personaContratoSelect.innerHTML = '<option value="">Sin personas registradas</option>';
+            return;
+        }
+
+        area.personas.forEach(persona => {
+            const option = document.createElement('option');
+            option.value = persona.id;
+            option.textContent = `${persona.nombre} - ${persona.cargo}`;
+            personaContratoSelect.appendChild(option);
         });
 
     });
