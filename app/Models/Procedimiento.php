@@ -9,6 +9,7 @@ class Procedimiento extends Model
     protected $table = 'procedimientos';
 
     protected $fillable = [
+        'id_tipo_procedimiento',
         'nombre_procedimiento',
         'num_procedimiento',
         'monto_maximo',

@@ -86,6 +86,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/publicacion/generar', [PublicacionController::class, 'generar'])
             ->name('publicacion.generar');
 
+        Route::get(
+            '/buscar-procedimiento-publicacion/{valor}',
+            [PublicacionController::class, 'buscarProcedimiento']
+        )->name('publicacion.buscar');
+
         /*
         |--------------------------------------------------------------------------
         | ADJUDICACIÓN

@@ -2,188 +2,635 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Models\Persona;
 use App\Models\Procedimiento;
 use Carbon\Carbon;
-use App\Models\Persona;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
 use PhpOffice\PhpWord\TemplateProcessor;
+use Throwable;
 
 class DesignacionController extends Controller
 {
     public function index()
     {
         $personas = Persona::whereHas('area', function ($query) {
-                $query->where('nombre', 'Coordinación de Adquisiciones y Servicios');
+                $query->where(
+                    'nombre',
+                    'Coordinación General de Adquisiciones y Servicios'
+                );
             })
             ->orderBy('nombre')
             ->get();
 
-        return view('comprador.Designacion.Designacion', compact('personas'));
+        return view(
+            'comprador.Designacion.Designacion',
+            compact('personas')
+        );
     }
 
     public function buscarProcedimiento($valor)
     {
         $valor = trim($valor);
 
-        $proc = Procedimiento::where(
+        $procedimiento = Procedimiento::where(
             'num_procedimiento',
             'LIKE',
             '%-N-' . $valor . '-%'
         )->first();
 
-        if (!$proc) {
+        if (!$procedimiento) {
             return response()->json(null);
         }
 
         return response()->json([
-            'num_procedimiento'    => $proc->num_procedimiento,
-            'nombre_procedimiento' => $proc->nombre_procedimiento,
+            'num_procedimiento' =>
+                $procedimiento->num_procedimiento,
 
-            'fecha_vm'       => $proc->fecha_vm ? Carbon::parse($proc->fecha_vm)->format('Y-m-d') : '',
-            'fecha_ac'       => $proc->fecha_ac ? Carbon::parse($proc->fecha_ac)->format('Y-m-d') : '',
-            'fecha_apertura' => $proc->fecha_apertura ? Carbon::parse($proc->fecha_apertura)->format('Y-m-d') : '',
-            'fecha_fallo'    => $proc->fecha_fallo ? Carbon::parse($proc->fecha_fallo)->format('Y-m-d') : '',
+            'nombre_procedimiento' =>
+                $procedimiento->nombre_procedimiento,
 
-            'hora_vm'       => $proc->hora_vm ? Carbon::parse($proc->hora_vm)->format('H:i') : '',
-            'hora_ac'       => $proc->hora_ac ? Carbon::parse($proc->hora_ac)->format('H:i') : '',
-            'hora_apertura' => $proc->hora_apertura ? Carbon::parse($proc->hora_apertura)->format('H:i') : '',
-            'hora_fallo'    => $proc->hora_fallo ? Carbon::parse($proc->hora_fallo)->format('H:i') : '',
+            'fecha_vm' =>
+                $procedimiento->fecha_vm
+                    ? Carbon::parse(
+                        $procedimiento->fecha_vm
+                    )->format('Y-m-d')
+                    : '',
+
+            'fecha_ac' =>
+                $procedimiento->fecha_ac
+                    ? Carbon::parse(
+                        $procedimiento->fecha_ac
+                    )->format('Y-m-d')
+                    : '',
+
+            'fecha_apertura' =>
+                $procedimiento->fecha_apertura
+                    ? Carbon::parse(
+                        $procedimiento->fecha_apertura
+                    )->format('Y-m-d')
+                    : '',
+
+            'fecha_fallo' =>
+                $procedimiento->fecha_fallo
+                    ? Carbon::parse(
+                        $procedimiento->fecha_fallo
+                    )->format('Y-m-d')
+                    : '',
+
+            'hora_vm' =>
+                $procedimiento->hora_vm
+                    ? Carbon::parse(
+                        $procedimiento->hora_vm
+                    )->format('H:i')
+                    : '',
+
+            'hora_ac' =>
+                $procedimiento->hora_ac
+                    ? Carbon::parse(
+                        $procedimiento->hora_ac
+                    )->format('H:i')
+                    : '',
+
+            'hora_apertura' =>
+                $procedimiento->hora_apertura
+                    ? Carbon::parse(
+                        $procedimiento->hora_apertura
+                    )->format('H:i')
+                    : '',
+
+            'hora_fallo' =>
+                $procedimiento->hora_fallo
+                    ? Carbon::parse(
+                        $procedimiento->hora_fallo
+                    )->format('H:i')
+                    : '',
         ]);
     }
 
     public function generar(Request $request)
     {
-        $request->validate([
-            'numero_referencia'     => 'required',
-            'fecha_oficio'          => 'required|date',
-            'numero_busqueda'       => 'required',
+        $request->validate(
+            [
+                'numero_referencia' => [
+                    'required',
+                    'string',
+                    'max:255',
+                ],
 
-            'num_procedimiento'     => 'required',
-            'nombre_procedimiento'  => 'required',
+                'fecha_oficio' => [
+                    'required',
+                    'date',
+                ],
 
-            'fecha_vm'              => 'nullable',
-            'hora_vm'               => 'nullable',
-            'fecha_ac'              => 'nullable|date',
-            'hora_ac'               => 'nullable',
-            'fecha_apertura'        => 'nullable|date',
-            'hora_apertura'         => 'nullable',
-            'fecha_fallo'           => 'nullable|date',
-            'hora_fallo'            => 'nullable',
+                'numero_busqueda' => [
+                    'required',
+                    'string',
+                    'max:50',
+                ],
 
-            'reviso_id'             => 'nullable|exists:personas,id',
-            'archivo_word'          => 'required|file|mimes:docx'
-        ]);
+                /*
+                 * Estos campos se autocompletan, pero también pueden
+                 * ser modificados manualmente.
+                 *
+                 * Ya no son obligatorios porque numero_busqueda
+                 * identifica el procedimiento.
+                 */
+                'num_procedimiento' => [
+                    'nullable',
+                    'string',
+                    'max:255',
+                ],
 
+                'nombre_procedimiento' => [
+                    'nullable',
+                    'string',
+                    'max:1000',
+                ],
+
+                'fecha_vm' => [
+                    'nullable',
+                    'date',
+                ],
+
+                'hora_vm' => [
+                    'nullable',
+                    'date_format:H:i',
+                ],
+
+                'fecha_ac' => [
+                    'nullable',
+                    'date',
+                ],
+
+                'hora_ac' => [
+                    'nullable',
+                    'date_format:H:i',
+                ],
+
+                'fecha_apertura' => [
+                    'nullable',
+                    'date',
+                ],
+
+                'hora_apertura' => [
+                    'nullable',
+                    'date_format:H:i',
+                ],
+
+                'fecha_fallo' => [
+                    'nullable',
+                    'date',
+                ],
+
+                'hora_fallo' => [
+                    'nullable',
+                    'date_format:H:i',
+                ],
+
+                'reviso_id' => [
+                    'nullable',
+                    'integer',
+                    'exists:personas,id',
+                ],
+
+                'archivo_word' => [
+                    'required',
+                    'file',
+                    'mimes:docx',
+                    'max:10240',
+                ],
+            ],
+            [
+                'numero_referencia.required' =>
+                    'Debe ingresar el número de referencia.',
+
+                'fecha_oficio.required' =>
+                    'Debe ingresar la fecha del oficio.',
+
+                'numero_busqueda.required' =>
+                    'Debe ingresar el número de búsqueda.',
+
+                'reviso_id.exists' =>
+                    'La persona seleccionada para revisión no existe.',
+
+                'archivo_word.required' =>
+                    'Debe seleccionar una plantilla Word.',
+
+                'archivo_word.mimes' =>
+                    'La plantilla debe ser un archivo con extensión .docx.',
+
+                'archivo_word.max' =>
+                    'La plantilla no debe superar los 10 MB.',
+            ]
+        );
+
+        /*
+         * Buscar el procedimiento por el número ingresado.
+         */
         $procedimiento = Procedimiento::where(
             'num_procedimiento',
             'LIKE',
-            '%-N-' . $request->numero_busqueda . '-%'
+            '%-N-' . trim($request->numero_busqueda) . '-%'
         )->first();
 
         if (!$procedimiento) {
-            return back()->with('error', 'No se encontró el procedimiento');
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'No se encontró el procedimiento.'
+                );
         }
 
+        /*
+         * Usar los datos enviados desde el formulario.
+         *
+         * Si la persona modificó manualmente alguno de estos campos,
+         * ese nuevo valor será el que aparezca en el Word.
+         *
+         * Si el campo llega vacío, se utiliza como respaldo el valor
+         * registrado originalmente en la base de datos.
+         */
+        $numeroProcedimientoWord = $request->filled(
+            'num_procedimiento'
+        )
+            ? trim((string) $request->num_procedimiento)
+            : $procedimiento->num_procedimiento;
+
+        $nombreProcedimientoWord = $request->filled(
+            'nombre_procedimiento'
+        )
+            ? trim((string) $request->nombre_procedimiento)
+            : $procedimiento->nombre_procedimiento;
+
+        /*
+         * Persona que revisa.
+         */
         $textoReviso = '';
 
         if ($request->filled('reviso_id')) {
-            $persona = Persona::find($request->reviso_id);
+            $persona = Persona::find(
+                $request->reviso_id
+            );
 
             if ($persona) {
-                $textoReviso = $persona->nombre . '.- ' . $persona->cargo . ':';
+                $nombreReviso = trim(
+                    (string) $persona->nombre
+                );
+
+                $cargoReviso = trim(
+                    (string) $persona->cargo
+                );
+
+                if (
+                    $nombreReviso !== '' &&
+                    $cargoReviso !== ''
+                ) {
+                    $textoReviso =
+                        $nombreReviso .
+                        '.- ' .
+                        $cargoReviso .
+                        ':';
+                } elseif ($nombreReviso !== '') {
+                    $textoReviso =
+                        $nombreReviso .
+                        ':';
+                } elseif ($cargoReviso !== '') {
+                    $textoReviso =
+                        $cargoReviso .
+                        ':';
+                }
             }
         }
 
-        $textoElaboro = Auth::user()->name ?? '';
+        /*
+         * Usuario que elabora.
+         *
+         * Ejemplo:
+         * Comprador.- Auxiliar Administrativo
+         */
+        $usuario = Auth::user();
 
-        $fechaOficio = Carbon::parse($request->fecha_oficio)
+        $textoElaboro = '';
+
+        if ($usuario) {
+            $nombreElaboro = trim(
+                (string) $usuario->name
+            );
+
+            $cargoElaboro = trim(
+                (string) $usuario->cargo
+            );
+
+            if (
+                $nombreElaboro !== '' &&
+                $cargoElaboro !== ''
+            ) {
+                $textoElaboro =
+                    $nombreElaboro .
+                    '.- ' .
+                    $cargoElaboro;
+            } elseif ($nombreElaboro !== '') {
+                $textoElaboro =
+                    $nombreElaboro;
+            } elseif ($cargoElaboro !== '') {
+                $textoElaboro =
+                    $cargoElaboro;
+            }
+        }
+
+        /*
+         * Fecha del oficio.
+         */
+        $fechaOficio = Carbon::parse(
+            $request->fecha_oficio
+        )
             ->locale('es')
-            ->translatedFormat('d \d\e F \d\e Y');
+            ->translatedFormat(
+                'd \d\e F \d\e Y'
+            );
 
-        $fecha_vm = $request->filled('fecha_vm')
-            ? ucfirst(Carbon::parse($request->fecha_vm)->locale('es')->translatedFormat('d-F-Y'))
+        /*
+         * Fechas de los eventos.
+         */
+        $fechaVm = $request->filled('fecha_vm')
+            ? ucfirst(
+                Carbon::parse(
+                    $request->fecha_vm
+                )
+                    ->locale('es')
+                    ->translatedFormat('d-F-Y')
+            )
             : 'N/A';
 
-        $fecha_ac = $request->filled('fecha_ac')
-            ? ucfirst(Carbon::parse($request->fecha_ac)->locale('es')->translatedFormat('d-F-Y'))
+        $fechaAc = $request->filled('fecha_ac')
+            ? ucfirst(
+                Carbon::parse(
+                    $request->fecha_ac
+                )
+                    ->locale('es')
+                    ->translatedFormat('d-F-Y')
+            )
             : 'N/A';
 
-        $fecha_apertura = $request->filled('fecha_apertura')
-            ? ucfirst(Carbon::parse($request->fecha_apertura)->locale('es')->translatedFormat('d-F-Y'))
+        $fechaApertura = $request->filled(
+            'fecha_apertura'
+        )
+            ? ucfirst(
+                Carbon::parse(
+                    $request->fecha_apertura
+                )
+                    ->locale('es')
+                    ->translatedFormat('d-F-Y')
+            )
             : 'N/A';
 
-        $fecha_fallo = $request->filled('fecha_fallo')
-            ? ucfirst(Carbon::parse($request->fecha_fallo)->locale('es')->translatedFormat('d-F-Y'))
+        $fechaFallo = $request->filled('fecha_fallo')
+            ? ucfirst(
+                Carbon::parse(
+                    $request->fecha_fallo
+                )
+                    ->locale('es')
+                    ->translatedFormat('d-F-Y')
+            )
             : 'N/A';
 
-        $hora_vm = $request->filled('hora_vm')
-            ? Carbon::parse($request->hora_vm)->format('H:i') . ' horas'
+        /*
+         * Horas de los eventos.
+         */
+        $horaVm = $request->filled('hora_vm')
+            ? Carbon::createFromFormat(
+                'H:i',
+                $request->hora_vm
+            )->format('H:i') . ' horas'
             : 'N/A';
 
-        $hora_ac = $request->filled('hora_ac')
-            ? Carbon::parse($request->hora_ac)->format('H:i') . ' horas'
+        $horaAc = $request->filled('hora_ac')
+            ? Carbon::createFromFormat(
+                'H:i',
+                $request->hora_ac
+            )->format('H:i') . ' horas'
             : 'N/A';
 
-        $hora_apertura = $request->filled('hora_apertura')
-            ? Carbon::parse($request->hora_apertura)->format('H:i') . ' horas'
+        $horaApertura = $request->filled(
+            'hora_apertura'
+        )
+            ? Carbon::createFromFormat(
+                'H:i',
+                $request->hora_apertura
+            )->format('H:i') . ' horas'
             : 'N/A';
 
-        $hora_fallo = $request->filled('hora_fallo')
-            ? Carbon::parse($request->hora_fallo)->format('H:i') . ' horas'
+        $horaFallo = $request->filled('hora_fallo')
+            ? Carbon::createFromFormat(
+                'H:i',
+                $request->hora_fallo
+            )->format('H:i') . ' horas'
             : 'N/A';
 
-        if (!$request->hasFile('archivo_word')) {
-            return back()->with('error', 'No se subió archivo');
+        $templatePath = null;
+        $outputPath = null;
+
+        try {
+            /*
+             * Guardar temporalmente la plantilla.
+             */
+            $archivo = $request->file(
+                'archivo_word'
+            );
+
+            $nombrePlantilla =
+                now()->format('Ymd_His') .
+                '_' .
+                $archivo->getClientOriginalName();
+
+            $directorioPlantillas = storage_path(
+                'app/plantillas'
+            );
+
+            File::ensureDirectoryExists(
+                $directorioPlantillas
+            );
+
+            $archivo->move(
+                $directorioPlantillas,
+                $nombrePlantilla
+            );
+
+            $templatePath =
+                $directorioPlantillas .
+                DIRECTORY_SEPARATOR .
+                $nombrePlantilla;
+
+            $templateProcessor =
+                new TemplateProcessor(
+                    $templatePath
+                );
+
+            /*
+             * Etiquetas generales.
+             */
+            $templateProcessor->setValue(
+                'numero_referencia',
+                $this->valorWord(
+                    $request->numero_referencia
+                )
+            );
+
+            $templateProcessor->setValue(
+                'fecha_oficio',
+                $fechaOficio
+            );
+
+            /*
+             * Se utilizan los datos del formulario.
+             *
+             * Si fueron modificados manualmente,
+             * el Word mostrará esos cambios.
+             */
+            $templateProcessor->setValue(
+                'num_procedimiento',
+                $this->valorWord(
+                    $numeroProcedimientoWord
+                )
+            );
+
+            $templateProcessor->setValue(
+                'nombre_procedimiento',
+                $this->valorWord(
+                    $nombreProcedimientoWord
+                )
+            );
+
+            /*
+             * Fechas y horas.
+             */
+            $templateProcessor->setValue(
+                'fecha_vm',
+                $fechaVm
+            );
+
+            $templateProcessor->setValue(
+                'hora_vm',
+                $horaVm
+            );
+
+            $templateProcessor->setValue(
+                'fecha_ac',
+                $fechaAc
+            );
+
+            $templateProcessor->setValue(
+                'hora_ac',
+                $horaAc
+            );
+
+            $templateProcessor->setValue(
+                'fecha_apertura',
+                $fechaApertura
+            );
+
+            $templateProcessor->setValue(
+                'hora_apertura',
+                $horaApertura
+            );
+
+            $templateProcessor->setValue(
+                'fecha_fallo',
+                $fechaFallo
+            );
+
+            $templateProcessor->setValue(
+                'hora_fallo',
+                $horaFallo
+            );
+
+            /*
+             * Firmas.
+             */
+            $templateProcessor->setValue(
+                'reviso',
+                $textoReviso
+            );
+
+            $templateProcessor->setValue(
+                'elaboro',
+                $textoElaboro
+            );
+
+            /*
+             * Guardar documento generado.
+             */
+            $directorioDocumentos = storage_path(
+                'app/public/documentos'
+            );
+
+            File::ensureDirectoryExists(
+                $directorioDocumentos
+            );
+
+            $nombreDocumento =
+                'designacion_' .
+                now()->format('Ymd_His') .
+                '.docx';
+
+            $outputPath =
+                $directorioDocumentos .
+                DIRECTORY_SEPARATOR .
+                $nombreDocumento;
+
+            $templateProcessor->saveAs(
+                $outputPath
+            );
+
+            /*
+             * Eliminar la plantilla temporal.
+             */
+            if (
+                $templatePath &&
+                File::exists($templatePath)
+            ) {
+                File::delete($templatePath);
+            }
+
+            return response()
+                ->download(
+                    $outputPath,
+                    $nombreDocumento
+                )
+                ->deleteFileAfterSend(true);
+        } catch (Throwable $e) {
+            if (
+                $templatePath &&
+                File::exists($templatePath)
+            ) {
+                File::delete($templatePath);
+            }
+
+            if (
+                $outputPath &&
+                File::exists($outputPath)
+            ) {
+                File::delete($outputPath);
+            }
+
+            report($e);
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'No fue posible generar el documento Word. Revisa la plantilla y vuelve a intentarlo.'
+                );
         }
+    }
 
-        $file = $request->file('archivo_word');
-        $filename = time() . '_' . $file->getClientOriginalName();
-
-        $templateDir = storage_path('app/plantillas');
-
-        if (!file_exists($templateDir)) {
-            mkdir($templateDir, 0777, true);
-        }
-
-        $file->move($templateDir, $filename);
-
-        $templatePath = $templateDir . '/' . $filename;
-
-        $templateProcessor = new TemplateProcessor($templatePath);
-
-        $templateProcessor->setValue('numero_referencia', $request->numero_referencia);
-        $templateProcessor->setValue('fecha_oficio', $fechaOficio);
-
-        $templateProcessor->setValue('num_procedimiento', $request->num_procedimiento);
-        $templateProcessor->setValue('nombre_procedimiento', $request->nombre_procedimiento);
-
-        $templateProcessor->setValue('fecha_vm', $fecha_vm);
-        $templateProcessor->setValue('hora_vm', $hora_vm);
-
-        $templateProcessor->setValue('fecha_ac', $fecha_ac);
-        $templateProcessor->setValue('hora_ac', $hora_ac);
-
-        $templateProcessor->setValue('fecha_apertura', $fecha_apertura);
-        $templateProcessor->setValue('hora_apertura', $hora_apertura);
-
-        $templateProcessor->setValue('fecha_fallo', $fecha_fallo);
-        $templateProcessor->setValue('hora_fallo', $hora_fallo);
-
-        $templateProcessor->setValue('reviso', $textoReviso);
-        $templateProcessor->setValue('elaboro', $textoElaboro);
-
-        $outputDir = storage_path('app/public/documentos');
-
-        if (!file_exists($outputDir)) {
-            mkdir($outputDir, 0777, true);
-        }
-
-        $outputName = 'designacion_' . time() . '.docx';
-        $outputPath = $outputDir . '/' . $outputName;
-
-        $templateProcessor->saveAs($outputPath);
-
-        return response()->download($outputPath)->deleteFileAfterSend(true);
+    private function valorWord($valor): string
+    {
+        return $valor !== null
+            ? trim((string) $valor)
+            : '';
     }
 }
