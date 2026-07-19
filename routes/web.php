@@ -16,6 +16,8 @@ use App\Http\Controllers\ActaCierreController;
 use App\Http\Controllers\NoAplicaController;
 use App\Http\Controllers\AperturaController;
 use App\Http\Controllers\FalloController;
+use App\Http\Controllers\DictFalloController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -205,6 +207,17 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/fallo/dictamen', function () {
             return view('comprador.Fallo.dictamenFallo');
         })->name('fallo.dictamen.index');
+
+        
+        Route::get('/dictamen-fallo', [DictFalloController::class, 'index'])
+            ->name('dictamen.fallo.index');
+
+        Route::get('/dictamen-fallo/buscar/{valor}', [DictFalloController::class, 'buscarProcedimiento'])
+            ->name('dictamen.fallo.buscar');
+
+        Route::post('/dictamen-fallo/generar', [DictFalloController::class, 'generar'])
+            ->name('dictamen.fallo.generar');
+
     });
 
     /*
@@ -241,6 +254,40 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/personas/{id}', [PersonaController::class, 'destroy']);
 
         Route::get('/procedimientos', [ProcedimientoController::class, 'procedi']);
+
+        
+    });
+
+    Route::prefix('personas')
+    ->name('personas.')
+    ->group(function () {
+        Route::get('/', [PersonaController::class, 'index'])
+            ->name('index');
+
+        Route::get('/crear', [PersonaController::class, 'create'])
+            ->name('create');
+
+        Route::post('/', [PersonaController::class, 'store'])
+            ->name('store');
+
+        Route::get(
+            '/plantilla-carga-masiva',
+            [PersonaController::class, 'descargarPlantillaMasiva']
+        )->name('plantilla-masiva');
+
+        Route::post(
+            '/carga-masiva',
+            [PersonaController::class, 'importarMasivo']
+        )->name('importar-masivo');
+
+        Route::get('/{id}/editar', [PersonaController::class, 'edit'])
+            ->name('edit');
+
+        Route::put('/{id}', [PersonaController::class, 'update'])
+            ->name('update');
+
+        Route::delete('/{id}', [PersonaController::class, 'destroy'])
+            ->name('destroy');
     });
 });
 

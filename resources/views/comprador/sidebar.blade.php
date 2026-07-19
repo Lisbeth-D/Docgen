@@ -122,11 +122,11 @@
                     </a>
                 </li>
 
-                <li>
-                    <a href="{{ route('fallo.dictamen.index') }}">
-                        <span>Dictamen de fallo</span>
-                    </a>
-                </li>
+                    <li>
+                        <a href="{{ route('dictamen.fallo.index') }}">
+                            <span>Dictamen de fallo</span>
+                        </a>
+                    </li>
             </ul>
         </li>
 

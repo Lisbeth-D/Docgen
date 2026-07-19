@@ -4,22 +4,6 @@
 
 @section('content')
 
-@php
-    /*
-    |--------------------------------------------------------------------------
-    | COLECCIONES SEGURAS
-    |--------------------------------------------------------------------------
-    | Evitan errores de variable indefinida mientras se termina de ajustar
-    | el controlador.
-    */
-
-    $areasContratantes = $areasContratantes ?? collect();
-    $areasContrato = $areasContrato ?? collect();
-    $areasRequirentes = $areasRequirentes ?? collect();
-    $personasJuridico = $personasJuridico ?? collect();
-    $personasOic = $personasOic ?? collect();
-@endphp
-
 <div class="admin-layout">
 
     @include('comprador.sidebar')
@@ -28,47 +12,55 @@
 
         <div class="conv-wrapper">
 
-            <form action="{{ route('apertura.generar') }}"
-                  method="POST"
-                  enctype="multipart/form-data"
-                  class="conv-form">
-
+            <form
+                id="form-apertura"
+                action="{{ route('apertura.generar') }}"
+                method="POST"
+                enctype="multipart/form-data"
+                class="conv-form"
+                novalidate
+            >
                 @csrf
 
                 <h2 class="conv-title">
                     Acta de Apertura
                 </h2>
 
-                {{-- ======================================== --}}
-                {{-- MENSAJES --}}
-                {{-- ======================================== --}}
+                {{-- MENSAJES GENERALES --}}
+                <div
+                    id="alerta_formulario"
+                    class="form-alert form-alert-danger"
+                    role="alert"
+                    aria-live="assertive"
+                    hidden
+                ></div>
 
-                @if(session('error'))
-                    <div class="alert alert-danger">
+                @if (session('error'))
+                    <div class="form-alert form-alert-danger">
+                        <strong>Error:</strong>
                         {{ session('error') }}
                     </div>
                 @endif
 
-                @if($errors->any())
-                    <div class="alert alert-danger">
-
-                        <strong>
-                            Revise los campos del formulario:
-                        </strong>
-
-                        <ul>
-                            @foreach($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-
+                @if (session('success'))
+                    <div class="form-alert form-alert-success">
+                        {{ session('success') }}
                     </div>
                 @endif
 
-                {{-- ======================================== --}}
-                {{-- PLANTILLA WORD --}}
-                {{-- ======================================== --}}
+                @if ($errors->any())
+                    <div class="form-alert form-alert-danger">
+                        <strong>No fue posible generar el documento.</strong>
 
+                        <ul>
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+                {{-- PLANTILLA WORD --}}
                 <div class="conv-card">
 
                     <h3>Plantilla Word</h3>
@@ -79,11 +71,16 @@
                             Subir archivo Word (.docx)
                         </label>
 
-                        <input type="file"
-                               id="archivo_word"
-                               name="archivo_word"
-                               accept=".docx"
-                               required>
+                        <input
+                            type="file"
+                            id="archivo_word"
+                            name="archivo_word"
+                            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            class="@error('archivo_word') input-error @enderror"
+                            required
+                        >
+
+                        <small>Máximo 10 MB.</small>
 
                         @error('archivo_word')
                             <span class="field-error">
@@ -95,10 +92,7 @@
 
                 </div>
 
-                {{-- ======================================== --}}
                 {{-- DATOS DEL PROCEDIMIENTO --}}
-                {{-- ======================================== --}}
-
                 <div class="conv-card">
 
                     <h3>Datos del procedimiento</h3>
@@ -108,16 +102,28 @@
                         <div class="conv-group">
 
                             <label for="numero_busqueda">
-                                Buscar procedimiento
+                                Número de búsqueda
                             </label>
 
-                            <input type="text"
-                                   id="numero_busqueda"
-                                   name="numero_busqueda"
-                                   value="{{ old('numero_busqueda') }}"
-                                   placeholder="Ejemplo: 25"
-                                   autocomplete="off"
-                                   required>
+                            <input
+                                type="text"
+                                id="numero_busqueda"
+                                name="numero_busqueda"
+                                value="{{ old('numero_busqueda') }}"
+                                placeholder="Ejemplo: 25"
+                                maxlength="100"
+                                autocomplete="off"
+                                class="@error('numero_busqueda') input-error @enderror"
+                                required
+                            >
+
+                            <div
+                                id="estado_busqueda"
+                                class="search-message"
+                                role="status"
+                                aria-live="polite"
+                                hidden
+                            ></div>
 
                             @error('numero_busqueda')
                                 <span class="field-error">
@@ -130,14 +136,23 @@
                         <div class="conv-group">
 
                             <label for="num_procedimiento">
-                                Número del procedimiento
+                                Número completo del procedimiento
                             </label>
 
-                            <input type="text"
-                                   id="num_procedimiento"
-                                   name="num_procedimiento"
-                                   value="{{ old('num_procedimiento') }}"
-                                   readonly>
+                            <input
+                                type="text"
+                                id="num_procedimiento"
+                                name="num_procedimiento"
+                                value="{{ old('num_procedimiento') }}"
+                                maxlength="255"
+                                class="@error('num_procedimiento') input-error @enderror"
+                            >
+
+                            @error('num_procedimiento')
+                                <span class="field-error">
+                                    {{ $message }}
+                                </span>
+                            @enderror
 
                         </div>
 
@@ -147,11 +162,20 @@
                                 Nombre del procedimiento
                             </label>
 
-                            <input type="text"
-                                   id="nombre_procedimiento"
-                                   name="nombre_procedimiento"
-                                   value="{{ old('nombre_procedimiento') }}"
-                                   readonly>
+                            <input
+                                type="text"
+                                id="nombre_procedimiento"
+                                name="nombre_procedimiento"
+                                value="{{ old('nombre_procedimiento') }}"
+                                maxlength="1000"
+                                class="@error('nombre_procedimiento') input-error @enderror"
+                            >
+
+                            @error('nombre_procedimiento')
+                                <span class="field-error">
+                                    {{ $message }}
+                                </span>
+                            @enderror
 
                         </div>
 
@@ -161,10 +185,13 @@
                                 Fecha de apertura
                             </label>
 
-                            <input type="date"
-                                   id="fecha_apertura"
-                                   name="fecha_apertura"
-                                   value="{{ old('fecha_apertura') }}">
+                            <input
+                                type="date"
+                                id="fecha_apertura"
+                                name="fecha_apertura"
+                                value="{{ old('fecha_apertura') }}"
+                                class="@error('fecha_apertura') input-error @enderror"
+                            >
 
                             @error('fecha_apertura')
                                 <span class="field-error">
@@ -180,10 +207,13 @@
                                 Hora de apertura
                             </label>
 
-                            <input type="time"
-                                   id="hora_apertura"
-                                   name="hora_apertura"
-                                   value="{{ old('hora_apertura') }}">
+                            <input
+                                type="time"
+                                id="hora_apertura"
+                                name="hora_apertura"
+                                value="{{ old('hora_apertura') }}"
+                                class="@error('hora_apertura') input-error @enderror"
+                            >
 
                             @error('hora_apertura')
                                 <span class="field-error">
@@ -199,10 +229,13 @@
                                 Fecha del fallo
                             </label>
 
-                            <input type="date"
-                                   id="fecha_fallo"
-                                   name="fecha_fallo"
-                                   value="{{ old('fecha_fallo') }}">
+                            <input
+                                type="date"
+                                id="fecha_fallo"
+                                name="fecha_fallo"
+                                value="{{ old('fecha_fallo') }}"
+                                class="@error('fecha_fallo') input-error @enderror"
+                            >
 
                             @error('fecha_fallo')
                                 <span class="field-error">
@@ -218,10 +251,13 @@
                                 Hora del fallo
                             </label>
 
-                            <input type="time"
-                                   id="hora_fallo"
-                                   name="hora_fallo"
-                                   value="{{ old('hora_fallo') }}">
+                            <input
+                                type="time"
+                                id="hora_fallo"
+                                name="hora_fallo"
+                                value="{{ old('hora_fallo') }}"
+                                class="@error('hora_fallo') input-error @enderror"
+                            >
 
                             @error('hora_fallo')
                                 <span class="field-error">
@@ -235,10 +271,7 @@
 
                 </div>
 
-                {{-- ======================================== --}}
                 {{-- PARTICIPANTES --}}
-                {{-- ======================================== --}}
-
                 <div class="conv-card">
 
                     <h3>Participantes</h3>
@@ -246,42 +279,38 @@
                     <div class="conv-grid">
 
                         {{-- ÁREA CONTRATANTE --}}
-
                         <div class="conv-group">
 
                             <label for="area_contratante">
                                 Área contratante
                             </label>
 
-                            <select id="area_contratante"
-                                    name="area_contratante"
-                                    required>
+                            <select
+                                id="area_contratante"
+                                name="area_contratante"
+                                class="@error('area_contratante') input-error @enderror"
+                                required
+                            >
 
                                 <option value="">
                                     Seleccionar
                                 </option>
 
-                                @forelse($areasContratantes as $persona)
-
-                                    <option value="{{ $persona->id }}"
-                                        {{ (string) old('area_contratante') === (string) $persona->id
-                                            ? 'selected'
-                                            : '' }}>
-
+                                @forelse ($personasContratante as $persona)
+                                    <option
+                                        value="{{ $persona->id }}"
+                                        @selected(
+                                            (string) old('area_contratante')
+                                            === (string) $persona->id
+                                        )
+                                    >
                                         {{ $persona->nombre }}
-
-                                        @if(!empty($persona->cargo))
-                                            - {{ $persona->cargo }}
-                                        @endif
-
+                                        {{ $persona->cargo ? ' - ' . $persona->cargo : '' }}
                                     </option>
-
                                 @empty
-
                                     <option value="" disabled>
-                                        No hay personas registradas en Adquisiciones y Servicios
+                                        No hay personas registradas en Coordinación de Adquisiciones y Servicios
                                     </option>
-
                                 @endforelse
 
                             </select>
@@ -294,49 +323,45 @@
 
                         </div>
 
-                        {{-- ÁREA DEL ADMINISTRADOR DEL CONTRATO --}}
-
+                        {{-- ÁREA DEL ADMINISTRADOR --}}
                         <div class="conv-group">
 
                             <label for="area_contrato_select">
                                 Área del administrador del contrato
                             </label>
 
-                            <select id="area_contrato_select">
+                            <select
+                                id="area_contrato_select"
+                                required
+                            >
 
                                 <option value="">
                                     Seleccionar área
                                 </option>
 
-                                @forelse($areasContrato as $area)
-
+                                @foreach ($areasContrato as $area)
                                     <option value="{{ $area->id_area }}">
                                         {{ $area->nombre }}
                                     </option>
-
-                                @empty
-
-                                    <option value="" disabled>
-                                        No hay áreas disponibles
-                                    </option>
-
-                                @endforelse
+                                @endforeach
 
                             </select>
 
                         </div>
 
-                        {{-- ADMINISTRADOR DEL CONTRATO --}}
-
+                        {{-- ADMINISTRADOR --}}
                         <div class="conv-group">
 
                             <label for="persona_contrato_select">
                                 Administrador o encargado del contrato
                             </label>
 
-                            <select id="persona_contrato_select"
-                                    name="encargado_contrato"
-                                    required>
+                            <select
+                                id="persona_contrato_select"
+                                name="encargado_contrato"
+                                class="@error('encargado_contrato') input-error @enderror"
+                                required
+                            >
 
                                 <option value="">
                                     Primero seleccione un área
@@ -352,55 +377,28 @@
 
                         </div>
 
-                        {{-- ÁREA REQUIRENTE --}}
-
+                        {{-- ÁREA REQUIRENTE AUTOMÁTICA --}}
                         <div class="conv-group">
 
-                            <label for="area_requirente_select">
+                            <label for="area_requirente_nombre">
                                 Área requirente
                             </label>
 
-                            <select id="area_requirente_select">
+                            <input
+                                type="text"
+                                id="area_requirente_nombre"
+                                name="area_requirente_nombre"
+                                value="{{ old('area_requirente_nombre') }}"
+                                placeholder="Se cargará automáticamente desde el procedimiento"
+                                readonly
+                            >
 
-                                <option value="">
-                                    Seleccionar área
-                                </option>
-
-                                @forelse($areasRequirentes as $area)
-
-                                    <option value="{{ $area->id_area }}">
-                                        {{ $area->nombre }}
-                                    </option>
-
-                                @empty
-
-                                    <option value="" disabled>
-                                        No hay áreas disponibles
-                                    </option>
-
-                                @endforelse
-
-                            </select>
-
-                        </div>
-
-                        {{-- PERSONA DEL ÁREA REQUIRENTE --}}
-
-                        <div class="conv-group">
-
-                            <label for="persona_requirente_select">
-                                Persona del área requirente
-                            </label>
-
-                            <select id="persona_requirente_select"
-                                    name="area_requirente"
-                                    required>
-
-                                <option value="">
-                                    Primero seleccione un área
-                                </option>
-
-                            </select>
+                            <input
+                                type="hidden"
+                                id="area_requirente"
+                                name="area_requirente"
+                                value="{{ old('area_requirente') }}"
+                            >
 
                             @error('area_requirente')
                                 <span class="field-error">
@@ -410,43 +408,39 @@
 
                         </div>
 
-                        {{-- PERSONA DE JURÍDICO --}}
-
+                        {{-- JURÍDICO --}}
                         <div class="conv-group">
 
                             <label for="persona_juridico">
-                                Persona de Jurídico
+                                Persona de Jurídico Centrales
                             </label>
 
-                            <select id="persona_juridico"
-                                    name="persona_juridico"
-                                    required>
+                            <select
+                                id="persona_juridico"
+                                name="persona_juridico"
+                                class="@error('persona_juridico') input-error @enderror"
+                                required
+                            >
 
                                 <option value="">
                                     Seleccionar
                                 </option>
 
-                                @forelse($personasJuridico as $persona)
-
-                                    <option value="{{ $persona->id }}"
-                                        {{ (string) old('persona_juridico') === (string) $persona->id
-                                            ? 'selected'
-                                            : '' }}>
-
+                                @forelse ($personasJuridico as $persona)
+                                    <option
+                                        value="{{ $persona->id }}"
+                                        @selected(
+                                            (string) old('persona_juridico')
+                                            === (string) $persona->id
+                                        )
+                                    >
                                         {{ $persona->nombre }}
-
-                                        @if(!empty($persona->cargo))
-                                            - {{ $persona->cargo }}
-                                        @endif
-
+                                        {{ $persona->cargo ? ' - ' . $persona->cargo : '' }}
                                     </option>
-
                                 @empty
-
                                     <option value="" disabled>
-                                        No hay personas registradas en Jurídico
+                                        No hay personas registradas en Jurídico Centrales
                                     </option>
-
                                 @endforelse
 
                             </select>
@@ -459,43 +453,39 @@
 
                         </div>
 
-                        {{-- PERSONA DEL OIC --}}
-
+                        {{-- OIC --}}
                         <div class="conv-group">
 
                             <label for="persona_oic">
-                                Persona del OIC
+                                Persona del Órgano Interno de Control
                             </label>
 
-                            <select id="persona_oic"
-                                    name="persona_oic"
-                                    required>
+                            <select
+                                id="persona_oic"
+                                name="persona_oic"
+                                class="@error('persona_oic') input-error @enderror"
+                                required
+                            >
 
                                 <option value="">
                                     Seleccionar
                                 </option>
 
-                                @forelse($personasOic as $persona)
-
-                                    <option value="{{ $persona->id }}"
-                                        {{ (string) old('persona_oic') === (string) $persona->id
-                                            ? 'selected'
-                                            : '' }}>
-
+                                @forelse ($personasOic as $persona)
+                                    <option
+                                        value="{{ $persona->id }}"
+                                        @selected(
+                                            (string) old('persona_oic')
+                                            === (string) $persona->id
+                                        )
+                                    >
                                         {{ $persona->nombre }}
-
-                                        @if(!empty($persona->cargo))
-                                            - {{ $persona->cargo }}
-                                        @endif
-
+                                        {{ $persona->cargo ? ' - ' . $persona->cargo : '' }}
                                     </option>
-
                                 @empty
-
                                     <option value="" disabled>
-                                        No hay personas registradas en el OIC
+                                        No hay personas registradas en el Órgano Interno de Control
                                     </option>
-
                                 @endforelse
 
                             </select>
@@ -512,15 +502,12 @@
 
                 </div>
 
-                {{-- ======================================== --}}
-                {{-- BOTÓN --}}
-                {{-- ======================================== --}}
-
-                <button type="submit"
-                        class="conv-btn">
-
+                <button
+                    type="submit"
+                    class="conv-btn"
+                    id="btn_generar"
+                >
                     Generar Word
-
                 </button>
 
             </form>
@@ -531,38 +518,106 @@
 
 </div>
 
+<style>
+    .form-alert {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 20px;
+        padding: 14px 18px;
+        border-radius: 8px;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .form-alert[hidden] {
+        display: none !important;
+    }
+
+    .form-alert ul {
+        margin: 8px 0 0 20px;
+        padding: 0;
+    }
+
+    .form-alert-danger {
+        color: #842029;
+        background-color: #f8d7da;
+        border: 1px solid #f5c2c7;
+    }
+
+    .form-alert-success {
+        color: #0f5132;
+        background-color: #d1e7dd;
+        border: 1px solid #badbcc;
+    }
+
+    .form-alert-info {
+        color: #055160;
+        background-color: #cff4fc;
+        border: 1px solid #b6effb;
+    }
+
+    .field-error {
+        display: block;
+        margin-top: 5px;
+        color: #b42318;
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    .input-error {
+        border: 1px solid #b42318 !important;
+        outline-color: #b42318 !important;
+    }
+
+    .search-message {
+        display: block;
+        min-height: 18px;
+        margin-top: 5px;
+        font-size: 13px;
+    }
+
+    .search-message[hidden] {
+        display: none !important;
+    }
+
+    .search-message.success {
+        color: #067647;
+    }
+
+    .search-message.error {
+        color: #b42318;
+    }
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    /*
-    |--------------------------------------------------------------------------
-    | DATOS ENVIADOS DESDE LARAVEL
-    |--------------------------------------------------------------------------
-    */
+    const areasContrato =
+        @json($areasContrato);
 
-    const areasContrato = @json($areasContrato);
+    const encargadoAnterior =
+        @json((string) old('encargado_contrato', ''));
 
-    const areasRequirentes = @json($areasRequirentes);
+    const buscarProcedimientoBaseUrl =
+        @json(url('/apertura/buscar'));
 
-    const oldEncargadoContrato =
-        @json(old('encargado_contrato'));
+    const formulario =
+        document.getElementById('form-apertura');
 
-    const oldAreaRequirente =
-        @json(old('area_requirente'));
+    const botonGenerar =
+        document.getElementById('btn_generar');
 
-    /*
-    |--------------------------------------------------------------------------
-    | ELEMENTOS DEL PROCEDIMIENTO
-    |--------------------------------------------------------------------------
-    */
+    const alertaFormulario =
+        document.getElementById('alerta_formulario');
 
     const inputBusqueda =
         document.getElementById('numero_busqueda');
 
-    const inputNumProcedimiento =
+    const inputNum =
         document.getElementById('num_procedimiento');
 
-    const inputNombreProcedimiento =
+    const inputNombre =
         document.getElementById('nombre_procedimiento');
 
     const inputFechaApertura =
@@ -577,192 +632,239 @@ document.addEventListener('DOMContentLoaded', function () {
     const inputHoraFallo =
         document.getElementById('hora_fallo');
 
+    const inputAreaRequirente =
+        document.getElementById('area_requirente');
+
+    const inputAreaRequirenteNombre =
+        document.getElementById('area_requirente_nombre');
+
+    const estadoBusqueda =
+        document.getElementById('estado_busqueda');
+
     let temporizadorBusqueda = null;
     let controladorBusqueda = null;
+    let busquedaEnCurso = false;
 
-    /*
-    |--------------------------------------------------------------------------
-    | BÚSQUEDA DEL PROCEDIMIENTO
-    |--------------------------------------------------------------------------
-    */
+    inputBusqueda.addEventListener('input', function () {
+        clearTimeout(temporizadorBusqueda);
 
-    if (inputBusqueda) {
+        if (controladorBusqueda) {
+            controladorBusqueda.abort();
+        }
 
-        inputBusqueda.addEventListener('input', function () {
+        busquedaEnCurso = false;
+        limpiarProcedimiento();
+        ocultarAlertaFormulario();
 
-            const valor = this.value.trim();
+        const valor = inputBusqueda.value.trim();
 
-            clearTimeout(temporizadorBusqueda);
+        if (valor === '') {
+            mostrarEstadoBusqueda('');
+            return;
+        }
 
-            if (controladorBusqueda) {
-                controladorBusqueda.abort();
-            }
+        mostrarEstadoBusqueda(
+            'Buscando procedimiento...',
+            'info'
+        );
 
-            if (valor === '') {
-                limpiarProcedimiento();
-                return;
-            }
+        temporizadorBusqueda = setTimeout(function () {
+            buscarProcedimiento(valor);
+        }, 350);
+    });
 
-            temporizadorBusqueda = setTimeout(function () {
-                buscarProcedimiento(valor);
-            }, 350);
-
-        });
-
-    }
-
-    function buscarProcedimiento(valor) {
-
+    async function buscarProcedimiento(valor) {
         controladorBusqueda = new AbortController();
+        busquedaEnCurso = true;
 
-        fetch(
-            "{{ url('/apertura/buscar') }}/"
-            + encodeURIComponent(valor),
-            {
-                method: 'GET',
+        try {
+            const respuestaHttp = await fetch(
+                `${buscarProcedimientoBaseUrl}/${encodeURIComponent(valor)}`,
+                {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    signal: controladorBusqueda.signal,
+                }
+            );
 
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
+            const datos =
+                await respuestaHttp.json().catch(() => null);
 
-                signal: controladorBusqueda.signal
-            }
-        )
-        .then(function (response) {
-
-            if (!response.ok) {
+            if (!respuestaHttp.ok) {
                 throw new Error(
-                    'No fue posible buscar el procedimiento.'
+                    'No fue posible consultar el procedimiento.'
                 );
             }
 
-            return response.json();
-
-        })
-        .then(function (data) {
-
-            if (inputBusqueda.value.trim() !== valor) {
-                return;
+            if (!datos || !datos.num_procedimiento) {
+                throw new Error(
+                    'No se encontró un procedimiento con ese número.'
+                );
             }
 
-            if (data && data.num_procedimiento) {
-
-                inputNumProcedimiento.value =
-                    data.num_procedimiento ?? '';
-
-                inputNombreProcedimiento.value =
-                    data.nombre_procedimiento ?? '';
-
-                inputFechaApertura.value =
-                    data.fecha_apertura ?? '';
-
-                inputHoraApertura.value =
-                    data.hora_apertura ?? '';
-
-                inputFechaFallo.value =
-                    data.fecha_fallo ?? '';
-
-                inputHoraFallo.value =
-                    data.hora_fallo ?? '';
-
-            } else {
-                limpiarProcedimiento();
+            if (!datos.area_requirente_id) {
+                throw new Error(
+                    'El procedimiento no tiene una persona requirente válida registrada.'
+                );
             }
 
-        })
-        .catch(function (error) {
+            inputNum.value =
+                datos.num_procedimiento || '';
 
+            inputNombre.value =
+                datos.nombre_procedimiento || '';
+
+            inputFechaApertura.value =
+                datos.fecha_apertura || '';
+
+            inputHoraApertura.value =
+                datos.hora_apertura || '';
+
+            inputFechaFallo.value =
+                datos.fecha_fallo || '';
+
+            inputHoraFallo.value =
+                datos.hora_fallo || '';
+
+            inputAreaRequirente.value =
+                datos.area_requirente_id || '';
+
+            inputAreaRequirenteNombre.value =
+                datos.area_requirente_nombre || '';
+
+            mostrarEstadoBusqueda(
+                'Procedimiento encontrado. Los datos fueron cargados y pueden editarse.',
+                'success'
+            );
+        } catch (error) {
             if (error.name === 'AbortError') {
                 return;
             }
 
-            console.error(
-                'Error al buscar procedimiento:',
-                error
-            );
-
             limpiarProcedimiento();
 
-        });
-
+            mostrarEstadoBusqueda(
+                error.message
+                || 'No fue posible realizar la búsqueda.',
+                'error'
+            );
+        } finally {
+            busquedaEnCurso = false;
+        }
     }
 
     function limpiarProcedimiento() {
+        inputNum.value = '';
+        inputNombre.value = '';
+        inputFechaApertura.value = '';
+        inputHoraApertura.value = '';
+        inputFechaFallo.value = '';
+        inputHoraFallo.value = '';
+        inputAreaRequirente.value = '';
+        inputAreaRequirenteNombre.value = '';
+    }
 
-        if (inputNumProcedimiento) {
-            inputNumProcedimiento.value = '';
+    function mostrarEstadoBusqueda(
+        mensaje,
+        tipo = 'info'
+    ) {
+        estadoBusqueda.textContent = mensaje;
+        estadoBusqueda.hidden = !mensaje;
+        estadoBusqueda.className =
+            'search-message';
+
+        if (tipo === 'success') {
+            estadoBusqueda.classList.add('success');
         }
 
-        if (inputNombreProcedimiento) {
-            inputNombreProcedimiento.value = '';
+        if (tipo === 'error') {
+            estadoBusqueda.classList.add('error');
+        }
+    }
+
+    function mostrarAlertaFormulario(
+        contenido,
+        tipo = 'danger'
+    ) {
+        alertaFormulario.innerHTML = '';
+        alertaFormulario.hidden = false;
+        alertaFormulario.className =
+            `form-alert form-alert-${tipo}`;
+
+        if (Array.isArray(contenido)) {
+            const titulo =
+                document.createElement('strong');
+
+            titulo.textContent =
+                'No fue posible generar el documento.';
+
+            alertaFormulario.appendChild(titulo);
+
+            const lista =
+                document.createElement('ul');
+
+            contenido.forEach(function (mensaje) {
+                const elemento =
+                    document.createElement('li');
+
+                elemento.textContent = mensaje;
+                lista.appendChild(elemento);
+            });
+
+            alertaFormulario.appendChild(lista);
+        } else {
+            alertaFormulario.textContent =
+                contenido;
         }
 
-        if (inputFechaApertura) {
-            inputFechaApertura.value = '';
-        }
+        alertaFormulario.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+        });
+    }
 
-        if (inputHoraApertura) {
-            inputHoraApertura.value = '';
-        }
-
-        if (inputFechaFallo) {
-            inputFechaFallo.value = '';
-        }
-
-        if (inputHoraFallo) {
-            inputHoraFallo.value = '';
-        }
-
+    function ocultarAlertaFormulario() {
+        alertaFormulario.innerHTML = '';
+        alertaFormulario.hidden = true;
+        alertaFormulario.className =
+            'form-alert form-alert-danger';
     }
 
     /*
-    |--------------------------------------------------------------------------
-    | ADMINISTRADOR DEL CONTRATO
-    |--------------------------------------------------------------------------
-    */
-
+     * Administrador del contrato.
+     */
     const areaContratoSelect =
         document.getElementById('area_contrato_select');
 
     const personaContratoSelect =
         document.getElementById('persona_contrato_select');
 
-    if (areaContratoSelect && personaContratoSelect) {
-
-        areaContratoSelect.addEventListener('change', function () {
-
-            cargarPersonasContrato(
-                this.value,
-                null
-            );
-
-        });
-
-    }
+    areaContratoSelect.addEventListener('change', function () {
+        cargarPersonasContrato(
+            this.value
+        );
+    });
 
     function cargarPersonasContrato(
         areaId,
-        personaSeleccionada = null
+        personaSeleccionada = ''
     ) {
-
-        if (!personaContratoSelect) {
-            return;
-        }
-
-        personaContratoSelect.innerHTML =
-            '<option value="">Seleccionar persona</option>';
+        personaContratoSelect.innerHTML = '';
 
         if (!areaId) {
-
-            personaContratoSelect.innerHTML =
-                '<option value="">Primero seleccione un área</option>';
+            agregarOpcion(
+                personaContratoSelect,
+                '',
+                'Primero seleccione un área'
+            );
 
             return;
         }
 
         const area = areasContrato.find(function (item) {
-            return Number(item.id_area) === Number(areaId);
+            return String(item.id_area) === String(areaId);
         });
 
         if (
@@ -770,191 +872,197 @@ document.addEventListener('DOMContentLoaded', function () {
             || !Array.isArray(area.personas)
             || area.personas.length === 0
         ) {
-
-            personaContratoSelect.innerHTML =
-                '<option value="">Sin personas registradas</option>';
+            agregarOpcion(
+                personaContratoSelect,
+                '',
+                'Sin personas registradas'
+            );
 
             return;
         }
 
+        agregarOpcion(
+            personaContratoSelect,
+            '',
+            'Seleccionar persona'
+        );
+
         area.personas.forEach(function (persona) {
+            const texto = persona.cargo
+                ? `${persona.nombre} - ${persona.cargo}`
+                : persona.nombre;
 
-            const option =
-                document.createElement('option');
-
-            option.value = persona.id;
-
-            option.textContent =
-                persona.nombre
-                + (
-                    persona.cargo
-                        ? ' - ' + persona.cargo
-                        : ''
-                );
-
-            if (
-                personaSeleccionada
-                && Number(persona.id)
-                    === Number(personaSeleccionada)
-            ) {
-                option.selected = true;
-            }
-
-            personaContratoSelect.appendChild(option);
-
-        });
-
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | ÁREA REQUIRENTE
-    |--------------------------------------------------------------------------
-    */
-
-    const areaRequirenteSelect =
-        document.getElementById('area_requirente_select');
-
-    const personaRequirenteSelect =
-        document.getElementById('persona_requirente_select');
-
-    if (areaRequirenteSelect && personaRequirenteSelect) {
-
-        areaRequirenteSelect.addEventListener('change', function () {
-
-            cargarPersonasRequirentes(
-                this.value,
-                null
+            agregarOpcion(
+                personaContratoSelect,
+                persona.id,
+                texto,
+                String(persona.id)
+                    === String(personaSeleccionada)
             );
-
         });
-
     }
 
-    function cargarPersonasRequirentes(
-        areaId,
-        personaSeleccionada = null
+    function agregarOpcion(
+        select,
+        valor,
+        texto,
+        seleccionada = false
     ) {
+        const opcion =
+            document.createElement('option');
 
-        if (!personaRequirenteSelect) {
+        opcion.value = valor;
+        opcion.textContent = texto;
+        opcion.selected = seleccionada;
+
+        select.appendChild(opcion);
+    }
+
+    function restaurarAdministrador() {
+        if (!encargadoAnterior) {
             return;
         }
 
-        personaRequirenteSelect.innerHTML =
-            '<option value="">Seleccionar persona</option>';
-
-        if (!areaId) {
-
-            personaRequirenteSelect.innerHTML =
-                '<option value="">Primero seleccione un área</option>';
-
-            return;
-        }
-
-        const area = areasRequirentes.find(function (item) {
-            return Number(item.id_area) === Number(areaId);
+        const area = areasContrato.find(function (item) {
+            return Array.isArray(item.personas)
+                && item.personas.some(function (persona) {
+                    return String(persona.id)
+                        === String(encargadoAnterior);
+                });
         });
 
-        if (
-            !area
-            || !Array.isArray(area.personas)
-            || area.personas.length === 0
-        ) {
-
-            personaRequirenteSelect.innerHTML =
-                '<option value="">Sin personas registradas</option>';
-
+        if (!area) {
             return;
         }
 
-        area.personas.forEach(function (persona) {
+        areaContratoSelect.value =
+            String(area.id_area);
 
-            const option =
-                document.createElement('option');
+        cargarPersonasContrato(
+            area.id_area,
+            encargadoAnterior
+        );
+    }
 
-            option.value = persona.id;
+    restaurarAdministrador();
 
-            option.textContent =
-                persona.nombre
-                + (
-                    persona.cargo
-                        ? ' - ' + persona.cargo
-                        : ''
-                );
+    function obtenerEtiquetaCampo(campo) {
+        if (campo.id) {
+            const etiqueta = formulario.querySelector(
+                `label[for="${CSS.escape(campo.id)}"]`
+            );
 
-            if (
-                personaSeleccionada
-                && Number(persona.id)
-                    === Number(personaSeleccionada)
-            ) {
-                option.selected = true;
+            if (etiqueta) {
+                return etiqueta.textContent.trim();
+            }
+        }
+
+        return campo.name || 'campo requerido';
+    }
+
+    function validarFormularioPersonalizado() {
+        formulario
+            .querySelectorAll('.input-error')
+            .forEach(function (campo) {
+                campo.classList.remove('input-error');
+            });
+
+        const campos = Array.from(
+            formulario.querySelectorAll(
+                'input, select, textarea'
+            )
+        ).filter(function (campo) {
+            return !campo.disabled
+                && campo.type !== 'hidden'
+                && !campo.closest('[hidden]');
+        });
+
+        const invalidos = campos.filter(function (campo) {
+            return !campo.checkValidity();
+        });
+
+        if (invalidos.length === 0) {
+            return true;
+        }
+
+        invalidos.forEach(function (campo) {
+            campo.classList.add('input-error');
+        });
+
+        const mensajes = invalidos.map(function (campo) {
+            const etiqueta =
+                obtenerEtiquetaCampo(campo);
+
+            if (campo.validity.valueMissing) {
+                return `Debe completar el campo ${etiqueta}.`;
             }
 
-            personaRequirenteSelect.appendChild(option);
-
+            return `Revise el campo ${etiqueta}.`;
         });
 
+        mostrarAlertaFormulario(
+            [...new Set(mensajes)]
+        );
+
+        invalidos[0].focus({
+            preventScroll: true,
+        });
+
+        invalidos[0].scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+        });
+
+        return false;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | RECUPERAR VALORES DESPUÉS DE VALIDACIÓN
-    |--------------------------------------------------------------------------
-    */
+    formulario.addEventListener('input', function (event) {
+        if (
+            event.target.matches(
+                'input, select, textarea'
+            )
+        ) {
+            event.target.classList.remove(
+                'input-error'
+            );
+        }
+    });
 
-    if (oldEncargadoContrato) {
+    formulario.addEventListener('change', function (event) {
+        if (
+            event.target.matches(
+                'input, select, textarea'
+            )
+        ) {
+            event.target.classList.remove(
+                'input-error'
+            );
+        }
+    });
 
-        const areaEncontrada =
-            areasContrato.find(function (area) {
+    formulario.addEventListener('submit', function (event) {
+        event.preventDefault();
+        ocultarAlertaFormulario();
 
-                return Array.isArray(area.personas)
-                    && area.personas.some(function (persona) {
-                        return Number(persona.id)
-                            === Number(oldEncargadoContrato);
-                    });
-
-            });
-
-        if (areaEncontrada && areaContratoSelect) {
-
-            areaContratoSelect.value =
-                areaEncontrada.id_area;
-
-            cargarPersonasContrato(
-                areaEncontrada.id_area,
-                oldEncargadoContrato
+        if (busquedaEnCurso) {
+            mostrarAlertaFormulario(
+                'Espere a que termine la búsqueda del procedimiento.',
+                'info'
             );
 
+            return;
         }
 
-    }
-
-    if (oldAreaRequirente) {
-
-        const areaEncontrada =
-            areasRequirentes.find(function (area) {
-
-                return Array.isArray(area.personas)
-                    && area.personas.some(function (persona) {
-                        return Number(persona.id)
-                            === Number(oldAreaRequirente);
-                    });
-
-            });
-
-        if (areaEncontrada && areaRequirenteSelect) {
-
-            areaRequirenteSelect.value =
-                areaEncontrada.id_area;
-
-            cargarPersonasRequirentes(
-                areaEncontrada.id_area,
-                oldAreaRequirente
-            );
-
+        if (!validarFormularioPersonalizado()) {
+            return;
         }
 
-    }
+        botonGenerar.disabled = true;
+        botonGenerar.textContent =
+            'Generando documento...';
+
+        formulario.submit();
+    });
 
 });
 </script>
