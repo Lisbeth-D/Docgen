@@ -58,19 +58,23 @@
             </div>
 
             <ul class="submenu" id="aclaracionesSubmenu">
-
-                {{-- SI APLICA JUNTA --}}
                 <li>
                     <div class="menu-title submenu-title" onclick="toggleSiAplica()">
                         <i data-feather="check-square"></i>
-                        <span>Si aplica junta</span>
+                        <span>Sí aplica junta</span>
                         <i data-feather="chevron-down" class="chevron"></i>
                     </div>
 
                     <ul class="submenu nested" id="siAplicaSubmenu">
                         <li>
+                            <a href="{{ route('acpregunta.index') }}">
+                                <span>Acta de preguntas</span>
+                            </a>
+                        </li>
+
+                        <li>
                             <a href="{{ route('ac.index') }}">
-                                <span>Acta preguntas</span>
+                                <span>Acta de Junta de Aclaraciones</span>
                             </a>
                         </li>
 
@@ -79,23 +83,15 @@
                                 <span>Acta de Cierre</span>
                             </a>
                         </li>
-
-                        <li>
-                            <a href="{{ route('acta.index') }}">
-                                <span>Acta</span>
-                            </a>
-                        </li>
                     </ul>
                 </li>
 
-                {{-- NO APLICA JUNTA --}}
                 <li>
                     <a href="{{ route('noaplica.index') }}">
                         <i data-feather="x-circle"></i>
                         <span>No aplica junta</span>
                     </a>
                 </li>
-
             </ul>
         </li>
 
@@ -122,12 +118,20 @@
                     </a>
                 </li>
 
-                    <li>
-                        <a href="{{ route('dictamen.fallo.index') }}">
-                            <span>Dictamen de fallo</span>
-                        </a>
-                    </li>
+                <li>
+                    <a href="{{ route('dictamen.fallo.index') }}">
+                        <span>Dictamen de fallo</span>
+                    </a>
+                </li>
             </ul>
+        </li>
+
+        {{-- REGISTROS --}}
+        <li>
+            <a href="{{ route('comprador.registros.index') }}">
+                <i data-feather="database"></i>
+                <span>Registros</span>
+            </a>
         </li>
 
         {{-- MANUAL --}}

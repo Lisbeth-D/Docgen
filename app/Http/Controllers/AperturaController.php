@@ -48,8 +48,7 @@ class AperturaController extends Controller
         $areaOicId = Area::whereIn('nombre', [
             'Órgano interno de control',
             'Organo interno de control',
-            'Órgano Interno de Control',
-            'Organo Interno de Control',
+            'OIC',
         ])->value('id_area');
 
         $personasContratante = $areaContratanteId

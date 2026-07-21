@@ -10,8 +10,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Validation\ValidationException;
+use PhpOffice\PhpWord\Element\TextRun;
 use PhpOffice\PhpWord\TemplateProcessor;
+use DOMDocument;
+use DOMXPath;
 use Throwable;
+use ZipArchive;
 
 class AclaracionController extends Controller
 {
@@ -26,16 +30,16 @@ class AclaracionController extends Controller
         )->value('id_area');
 
         $personasContratante = $areaContratanteId
-            ? Persona::where('area_id', $areaContratanteId)
+            ? Persona::with('area')->where('area_id', $areaContratanteId)
                 ->orderBy('nombre')
                 ->get()
             : collect();
 
-        $personasOic = Persona::where('area_id', 14)
+        $personasOic = Persona::with('area')->where('area_id', 14)
             ->orderBy('nombre')
             ->get();
 
-        $personasJuridico = Persona::where('area_id', 15)
+        $personasJuridico = Persona::with('area')->where('area_id', 15)
             ->orderBy('nombre')
             ->get();
 
@@ -69,7 +73,7 @@ class AclaracionController extends Controller
         }
 
         $personaRequirente = $procedimiento->id_persona
-            ? Persona::find($procedimiento->id_persona)
+            ? Persona::with('area')->find($procedimiento->id_persona)
             : null;
 
         return response()->json([
@@ -138,7 +142,7 @@ class AclaracionController extends Controller
         }
 
         $personaRequirente = $procedimiento->id_persona
-            ? Persona::find($procedimiento->id_persona)
+            ? Persona::with('area')->find($procedimiento->id_persona)
             : null;
 
         if (!$personaRequirente) {
@@ -458,6 +462,8 @@ class AclaracionController extends Controller
             $personaRequirente
         );
 
+        $usuario = Auth::user();
+
         return [
             'num_procedimiento' =>
                 $datosProcedimiento['numero'],
@@ -477,24 +483,73 @@ class AclaracionController extends Controller
             'fecha_apertura' =>
                 $datosProcedimiento['fecha_apertura_texto'],
 
+            /*
+             * Etiquetas para texto normal:
+             * nombre en negritas y cargo sin negritas.
+             */
             'area_requirente' =>
-                $this->crearTextoPersonaPlano(
-                    $personas['area_requirente']
+                $this->crearTextoPersonaWord(
+                    $personas['area_requirente'],
+                    ', '
                 ),
 
             'area_contratante' =>
-                $this->crearTextoPersonaPlano(
-                    $personas['area_contratante']
+                $this->crearTextoPersonaWord(
+                    $personas['area_contratante'],
+                    ', '
                 ),
 
+            /*
+             * OIC y Jurídico conservan la misma etiqueta
+             * tanto en párrafos como dentro de tablas.
+             */
             'persona_oic' =>
-                $this->crearTextoNombre(
-                    $personas['oic']
+                $this->crearTextoPersonaWord(
+                    $personas['oic'],
+                    ', '
                 ),
 
             'persona_juridico' =>
-                $this->crearTextoNombre(
-                    $personas['juridico']
+                $this->crearTextoPersonaWord(
+                    $personas['juridico'],
+                    ', '
+                ),
+
+            'comprador' =>
+                $this->crearTextoUsuarioWord(
+                    $usuario,
+                    ', '
+                ),
+
+            /*
+             * Etiquetas específicas para la tabla de firmas.
+             */
+            'area_requirente_tabla' =>
+                $this->crearTextoPersonaWord(
+                    $personas['area_requirente'],
+                    ' / '
+                ),
+
+            'area_requirente_area' =>
+                $this->obtenerNombreAreaPersona(
+                    $personas['area_requirente']
+                ),
+
+            'area_contratante_tabla' =>
+                $this->crearTextoPersonaWord(
+                    $personas['area_contratante'],
+                    ' / '
+                ),
+
+            'area_contratante_area' =>
+                $this->obtenerNombreAreaPersona(
+                    $personas['area_contratante']
+                ),
+
+            'comprador_tabla' =>
+                $this->crearTextoUsuarioWord(
+                    $usuario,
+                    ' / '
                 ),
 
             'ref_oic' =>
@@ -508,11 +563,6 @@ class AclaracionController extends Controller
                     'ref_juridico',
                     ''
                 )),
-
-            'comprador' =>
-                $this->crearTextoComprador(
-                    Auth::user()
-                ),
 
             'participantes' =>
                 $this->prepararParticipantes(
@@ -657,7 +707,7 @@ class AclaracionController extends Controller
             )
         );
 
-        $personas = Persona::whereIn('id', $ids)
+        $personas = Persona::with('area')->whereIn('id', $ids)
             ->get()
             ->keyBy('id');
 
@@ -746,7 +796,10 @@ class AclaracionController extends Controller
         TemplateProcessor $template,
         array $datos
     ): void {
-        $valores = [
+        /*
+         * Valores simples.
+         */
+        $valoresSimples = [
             'num_procedimiento' =>
                 $datos['num_procedimiento'],
 
@@ -765,6 +818,31 @@ class AclaracionController extends Controller
             'fecha_apertura' =>
                 $datos['fecha_apertura'],
 
+            'area_requirente_area' =>
+                $datos['area_requirente_area'],
+
+            'area_contratante_area' =>
+                $datos['area_contratante_area'],
+
+            'ref_oic' =>
+                $datos['ref_oic'],
+
+            'ref_juridico' =>
+                $datos['ref_juridico'],
+        ];
+
+        foreach ($valoresSimples as $marcador => $valor) {
+            $template->setValue(
+                $marcador,
+                $this->limpiarTexto($valor)
+            );
+        }
+
+        /*
+         * Valores enriquecidos:
+         * el nombre se inserta en negritas y el cargo sin negritas.
+         */
+        $valoresComplejos = [
             'area_requirente' =>
                 $datos['area_requirente'],
 
@@ -777,20 +855,41 @@ class AclaracionController extends Controller
             'persona_juridico' =>
                 $datos['persona_juridico'],
 
-            'ref_oic' =>
-                $datos['ref_oic'],
-
-            'ref_juridico' =>
-                $datos['ref_juridico'],
-
             'comprador' =>
                 $datos['comprador'],
+
+            'area_requirente_tabla' =>
+                $datos['area_requirente_tabla'],
+
+            'area_contratante_tabla' =>
+                $datos['area_contratante_tabla'],
+
+            'comprador_tabla' =>
+                $datos['comprador_tabla'],
         ];
 
-        foreach ($valores as $marcador => $valor) {
-            $template->setValue(
+        foreach ($valoresComplejos as $marcador => $valor) {
+            /*
+             * PhpWord no elimina correctamente un marcador complejo
+             * cuando el TextRun está vacío. En ese caso lo sustituimos
+             * como texto simple para evitar que aparezca literalmente
+             * ${persona_juridico}, ${persona_oic}, etc.
+             */
+            if (
+                $valor instanceof TextRun
+                && count($valor->getElements()) === 0
+            ) {
+                $template->setValue(
+                    $marcador,
+                    ''
+                );
+
+                continue;
+            }
+
+            $template->setComplexValue(
                 $marcador,
-                $this->limpiarTexto($valor)
+                $valor
             );
         }
 
@@ -875,10 +974,308 @@ class AclaracionController extends Controller
             $nombre
         );
 
-        return
+        $ruta =
             $directorio
             . DIRECTORY_SEPARATOR
             . $nombre;
+
+        /*
+         * Word puede dividir visualmente una etiqueta en varios fragmentos XML.
+         * Por ejemplo:
+         * ${persona_ + juridico}
+         *
+         * Aunque en Word se vea completa, TemplateProcessor no la encuentra.
+         * Esta normalización vuelve a unir las etiquetas antes de procesarlas.
+         */
+        $this->normalizarMarcadoresWord(
+            $ruta
+        );
+
+        return $ruta;
+    }
+
+    /**
+     * Repara marcadores que Microsoft Word dividió entre varios nodos <w:t>.
+     *
+     * TemplateProcessor sólo reconoce una etiqueta cuando está completa
+     * dentro del XML. Esta rutina reconstruye las etiquetas sin alterar
+     * el diseño de la plantilla.
+     */
+    private function normalizarMarcadoresWord(
+        string $rutaDocumento
+    ): void {
+        $marcadores = [
+            '${num_procedimiento}',
+            '${nombre_procedimiento}',
+            '${fecha_ac}',
+            '${hora_ac}',
+            '${hora_cierre}',
+            '${fecha_apertura}',
+            '${area_requirente}',
+            '${area_contratante}',
+            '${persona_oic}',
+            '${persona_juridico}',
+            '${ref_oic}',
+            '${ref_juridico}',
+            '${comprador}',
+            '${area_requirente_tabla}',
+            '${area_requirente_area}',
+            '${area_contratante_tabla}',
+            '${area_contratante_area}',
+            '${comprador_tabla}',
+            '${empresa}',
+            '${pregunta}',
+        ];
+
+        $zip = new ZipArchive();
+
+        if (
+            $zip->open($rutaDocumento)
+            !== true
+        ) {
+            throw new \RuntimeException(
+                'No fue posible abrir la plantilla Word para normalizar sus etiquetas.'
+            );
+        }
+
+        try {
+            for (
+                $indice = 0;
+                $indice < $zip->numFiles;
+                $indice++
+            ) {
+                $nombreEntrada = $zip->getNameIndex(
+                    $indice
+                );
+
+                if (
+                    !$nombreEntrada
+                    || !str_starts_with(
+                        $nombreEntrada,
+                        'word/'
+                    )
+                    || !str_ends_with(
+                        $nombreEntrada,
+                        '.xml'
+                    )
+                ) {
+                    continue;
+                }
+
+                $xml = $zip->getFromIndex(
+                    $indice
+                );
+
+                if (
+                    $xml === false
+                    || !str_contains(
+                        $xml,
+                        '$'
+                    )
+                ) {
+                    continue;
+                }
+
+                $xmlNormalizado =
+                    $this->normalizarMarcadoresXml(
+                        $xml,
+                        $marcadores
+                    );
+
+                if ($xmlNormalizado !== $xml) {
+                    $zip->addFromString(
+                        $nombreEntrada,
+                        $xmlNormalizado
+                    );
+                }
+            }
+        } finally {
+            $zip->close();
+        }
+    }
+
+    /**
+     * Une un marcador dividido entre varios nodos de texto del XML.
+     */
+    private function normalizarMarcadoresXml(
+        string $xml,
+        array $marcadores
+    ): string {
+        $dom = new DOMDocument(
+            '1.0',
+            'UTF-8'
+        );
+
+        $dom->preserveWhiteSpace = true;
+        $dom->formatOutput = false;
+
+        $estadoAnterior =
+            libxml_use_internal_errors(true);
+
+        try {
+            if (!$dom->loadXML($xml)) {
+                return $xml;
+            }
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors(
+                $estadoAnterior
+            );
+        }
+
+        $xpath = new DOMXPath($dom);
+        $xpath->registerNamespace(
+            'w',
+            'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+        );
+
+        $nodos = [];
+
+        foreach (
+            $xpath->query('//w:t') as $nodo
+        ) {
+            $nodos[] = $nodo;
+        }
+
+        if (!$nodos) {
+            return $xml;
+        }
+
+        foreach ($marcadores as $marcador) {
+            /*
+             * Se repite porque una misma etiqueta puede existir
+             * varias veces en el documento.
+             */
+            while (
+                $this->unirPrimeraCoincidencia(
+                    $nodos,
+                    $marcador
+                )
+            ) {
+                // Continúa hasta reparar todas las apariciones.
+            }
+        }
+
+        return $dom->saveXML() ?: $xml;
+    }
+
+    /**
+     * Une la primera aparición de un marcador fragmentado.
+     */
+    private function unirPrimeraCoincidencia(
+        array $nodos,
+        string $marcador
+    ): bool {
+        $textoCompleto = '';
+        $rangos = [];
+
+        foreach ($nodos as $indice => $nodo) {
+            $inicio = mb_strlen(
+                $textoCompleto
+            );
+
+            $contenido = (string) $nodo->nodeValue;
+            $textoCompleto .= $contenido;
+
+            $rangos[] = [
+                'indice' => $indice,
+                'inicio' => $inicio,
+                'fin' =>
+                    $inicio
+                    + mb_strlen($contenido),
+            ];
+        }
+
+        $posicion = mb_strpos(
+            $textoCompleto,
+            $marcador
+        );
+
+        if ($posicion === false) {
+            return false;
+        }
+
+        $finMarcador =
+            $posicion
+            + mb_strlen($marcador);
+
+        $primerRango = null;
+        $ultimoRango = null;
+
+        foreach ($rangos as $rango) {
+            if (
+                $primerRango === null
+                && $posicion < $rango['fin']
+            ) {
+                $primerRango = $rango;
+            }
+
+            if (
+                $finMarcador > $rango['inicio']
+                && $finMarcador <= $rango['fin']
+            ) {
+                $ultimoRango = $rango;
+                break;
+            }
+        }
+
+        if (
+            $primerRango === null
+            || $ultimoRango === null
+        ) {
+            return false;
+        }
+
+        /*
+         * Si ya está contenido en un solo nodo, no requiere reparación.
+         */
+        if (
+            $primerRango['indice']
+            === $ultimoRango['indice']
+        ) {
+            return false;
+        }
+
+        $primerNodo =
+            $nodos[$primerRango['indice']];
+
+        $ultimoNodo =
+            $nodos[$ultimoRango['indice']];
+
+        $offsetInicio =
+            $posicion
+            - $primerRango['inicio'];
+
+        $offsetFin =
+            $finMarcador
+            - $ultimoRango['inicio'];
+
+        $prefijo = mb_substr(
+            (string) $primerNodo->nodeValue,
+            0,
+            $offsetInicio
+        );
+
+        $sufijo = mb_substr(
+            (string) $ultimoNodo->nodeValue,
+            $offsetFin
+        );
+
+        $primerNodo->nodeValue =
+            $prefijo
+            . $marcador;
+
+        for (
+            $indice = $primerRango['indice'] + 1;
+            $indice < $ultimoRango['indice'];
+            $indice++
+        ) {
+            $nodos[$indice]->nodeValue = '';
+        }
+
+        $ultimoNodo->nodeValue = $sufijo;
+
+        return true;
     }
 
     /**
@@ -957,16 +1354,126 @@ class AclaracionController extends Controller
     private function formatearFechaTexto(
         Carbon $fecha
     ): string {
+        $meses = [
+            1 => 'enero',
+            2 => 'febrero',
+            3 => 'marzo',
+            4 => 'abril',
+            5 => 'mayo',
+            6 => 'junio',
+            7 => 'julio',
+            8 => 'agosto',
+            9 => 'septiembre',
+            10 => 'octubre',
+            11 => 'noviembre',
+            12 => 'diciembre',
+        ];
+
         return sprintf(
             '%d de %s de %d',
             $fecha->day,
-            $fecha->translatedFormat('F'),
+            $meses[$fecha->month],
             $fecha->year
         );
     }
 
     /**
-     * Genera NOMBRE.- CARGO para una persona.
+     * Genera un texto enriquecido para una persona.
+     * El nombre aparece en negritas y el cargo sin negritas.
+     */
+    private function crearTextoPersonaWord(
+        $persona,
+        string $separador = ', '
+    ): TextRun {
+        $texto = new TextRun();
+
+        if (!$persona) {
+            return $texto;
+        }
+
+        $nombre = $this->limpiarTexto(
+            $persona->nombre ?? ''
+        );
+
+        $cargo = $this->limpiarTexto(
+            $persona->cargo ?? ''
+        );
+
+        if ($nombre !== '') {
+            $texto->addText(
+                $nombre,
+                [
+                    'name' => 'Noto Sans',
+                    'size' => 10,
+                    'bold' => true,
+                ]
+            );
+        }
+
+        if ($cargo !== '') {
+            $texto->addText(
+                ($nombre !== '' ? $separador : '')
+                . $cargo,
+                [
+                    'name' => 'Noto Sans',
+                    'size' => 10,
+                    'bold' => false,
+                ]
+            );
+        }
+
+        return $texto;
+    }
+
+    /**
+     * Genera un texto enriquecido para el usuario comprador.
+     */
+    private function crearTextoUsuarioWord(
+        $usuario,
+        string $separador = ', '
+    ): TextRun {
+        $texto = new TextRun();
+
+        if (!$usuario) {
+            return $texto;
+        }
+
+        $nombre = $this->limpiarTexto(
+            $usuario->name ?? ''
+        );
+
+        $cargo = $this->limpiarTexto(
+            $usuario->cargo ?? ''
+        );
+
+        if ($nombre !== '') {
+            $texto->addText(
+                $nombre,
+                [
+                    'name' => 'Noto Sans',
+                    'size' => 10,
+                    'bold' => true,
+                ]
+            );
+        }
+
+        if ($cargo !== '') {
+            $texto->addText(
+                ($nombre !== '' ? $separador : '')
+                . $cargo,
+                [
+                    'name' => 'Noto Sans',
+                    'size' => 10,
+                    'bold' => false,
+                ]
+            );
+        }
+
+        return $texto;
+    }
+
+    /**
+     * Genera texto plano para mostrarlo en el formulario.
      */
     private function crearTextoPersonaPlano(
         $persona
@@ -975,22 +1482,16 @@ class AclaracionController extends Controller
             return '';
         }
 
-        $nombre = trim(
-            (string) $persona->nombre
+        $nombre = $this->limpiarTexto(
+            $persona->nombre ?? ''
         );
 
-        $cargo = trim(
-            (string) $persona->cargo
+        $cargo = $this->limpiarTexto(
+            $persona->cargo ?? ''
         );
 
-        if (
-            $nombre !== '' &&
-            $cargo !== ''
-        ) {
-            return
-                $nombre
-                . '.- '
-                . $cargo;
+        if ($nombre !== '' && $cargo !== '') {
+            return $nombre . ' - ' . $cargo;
         }
 
         return $nombre !== ''
@@ -999,47 +1500,37 @@ class AclaracionController extends Controller
     }
 
     /**
-     * Devuelve sólo el nombre de una persona.
+     * Obtiene el nombre del área relacionada con una persona.
      */
-    private function crearTextoNombre(
+    private function obtenerNombreAreaPersona(
         $persona
     ): string {
-        return $persona
-            ? trim((string) $persona->nombre)
-            : '';
-    }
-
-    /**
-     * Genera el texto del comprador.
-     */
-    private function crearTextoComprador(
-        $usuario
-    ): string {
-        if (!$usuario) {
+        if (!$persona) {
             return '';
         }
 
-        $nombre = trim(
-            (string) $usuario->name
-        );
-
-        $cargo = trim(
-            (string) $usuario->cargo
-        );
-
         if (
-            $nombre !== '' &&
-            $cargo !== ''
+            method_exists($persona, 'relationLoaded')
+            && $persona->relationLoaded('area')
+            && $persona->area
         ) {
-            return
-                $nombre
-                . '.- '
-                . $cargo;
+            return $this->limpiarTexto(
+                $persona->area->nombre ?? ''
+            );
         }
 
-        return $nombre !== ''
-            ? $nombre
-            : $cargo;
+        $areaId = $persona->area_id ?? null;
+
+        if (!$areaId) {
+            return '';
+        }
+
+        return $this->limpiarTexto(
+            Area::where(
+                'id_area',
+                $areaId
+            )->value('nombre')
+        );
     }
 
     /**

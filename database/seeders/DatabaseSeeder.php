@@ -26,5 +26,10 @@ class DatabaseSeeder extends Seeder
             'name' => 'Administrador',
             'email' => 'admin@test.com'
         ]);
+
+          $this->call([
+            DocumentoAdjudicacionSeeder::class,
+        ]);
+
     }
 }

@@ -133,6 +133,9 @@ class AcPreguntaController extends Controller
                     )
                     : '',
 
+            'plantilla_referencia_requirente' =>
+                $personaRequirente?->plantilla_referencia ?? '',
+
             'area_requirente_area' =>
                 $areaRequirente?->nombre ?? '',
         ]);
@@ -327,10 +330,7 @@ class AcPreguntaController extends Controller
                 ),
 
             'oficio_preguntas' =>
-                $this->crearReferenciaOficio(
-                    $areaCont->plantilla_referencia ?? '',
-                    $datosValidados['numero_oficio_preguntas']
-                ),
+                trim((string) $datosValidados['oficio_preguntas']),
 
             'fecha_oficio_preguntas' =>
                 $this->formatearFechaTexto(
@@ -340,10 +340,7 @@ class AcPreguntaController extends Controller
                 ),
 
             'oficio_respuestas' =>
-                $this->crearReferenciaOficio(
-                    $areaReq->plantilla_referencia ?? '',
-                    $datosValidados['numero_oficio_respuestas']
-                ),
+                trim((string) $datosValidados['oficio_respuestas']),
 
             'fecha_oficio_respuestas' =>
                 $this->formatearFechaTexto(
@@ -826,8 +823,8 @@ class AcPreguntaController extends Controller
             'area_contratante'         => ['required', 'integer', 'exists:personas,id'],
             'admi_contrato'            => ['required', 'integer', 'exists:personas,id'],
 
-            'numero_oficio_preguntas'  => ['required', 'integer', 'min:0'],
-            'numero_oficio_respuestas' => ['required', 'integer', 'min:0'],
+            'oficio_preguntas'         => ['required', 'string', 'max:255'],
+            'oficio_respuestas'        => ['required', 'string', 'max:255'],
             'fecha_oficio_preguntas'   => ['required', 'date'],
             'fecha_oficio_respuestas'  => ['required', 'date'],
 
@@ -874,13 +871,13 @@ class AcPreguntaController extends Controller
                         'area_contratante.required' => 'Seleccione a la persona representante del área contratante.',
             'admi_contrato.required' => 'Seleccione al administrador del contrato.',
 
-            'numero_oficio_preguntas.required' => 'Ingrese el número del oficio de preguntas.',
-            'numero_oficio_preguntas.integer' => 'El número del oficio de preguntas debe ser un número entero.',
-            'numero_oficio_preguntas.min' => 'El número del oficio de preguntas no puede ser negativo.',
+            'oficio_preguntas.required' => 'Ingrese la referencia del oficio de preguntas.',
+            'oficio_preguntas.string' => 'La referencia del oficio de preguntas debe contener texto válido.',
+            'oficio_preguntas.max' => 'La referencia del oficio de preguntas no debe exceder 255 caracteres.',
 
-            'numero_oficio_respuestas.required' => 'Ingrese el número del oficio de respuestas.',
-            'numero_oficio_respuestas.integer' => 'El número del oficio de respuestas debe ser un número entero.',
-            'numero_oficio_respuestas.min' => 'El número del oficio de respuestas no puede ser negativo.',
+            'oficio_respuestas.required' => 'Ingrese la referencia del oficio de respuestas.',
+            'oficio_respuestas.string' => 'La referencia del oficio de respuestas debe contener texto válido.',
+            'oficio_respuestas.max' => 'La referencia del oficio de respuestas no debe exceder 255 caracteres.',
             'fecha_oficio_preguntas.required' => 'Seleccione la fecha del oficio de preguntas.',
             'fecha_oficio_respuestas.required' => 'Seleccione la fecha del oficio de respuestas.',
 
@@ -908,8 +905,8 @@ class AcPreguntaController extends Controller
             'area_requirente' => 'área requirente',
             'area_contratante' => 'área contratante',
             'admi_contrato' => 'administrador del contrato',
-            'numero_oficio_preguntas' => 'número de oficio de preguntas',
-            'numero_oficio_respuestas' => 'número de oficio de respuestas',
+            'oficio_preguntas' => 'referencia del oficio de preguntas',
+            'oficio_respuestas' => 'referencia del oficio de respuestas',
             'fecha_oficio_preguntas' => 'fecha del oficio de preguntas',
             'fecha_oficio_respuestas' => 'fecha del oficio de respuestas',
             'persona_oic' => 'representante del OIC',
@@ -1387,26 +1384,29 @@ class AcPreguntaController extends Controller
     }
 
     /**
-     * Reemplaza {NUMERO} en la plantilla de referencia de oficio.
-     */
-    private function crearReferenciaOficio($plantilla, $numero): string
-    {
-        return str_replace(
-            '{NUMERO}',
-            (string) $numero,
-            trim((string) $plantilla)
-        );
-    }
-
-    /**
      * Formatea una fecha en español para el documento.
      */
     private function formatearFechaTexto(Carbon $fecha): string
     {
+        $meses = [
+            1 => 'enero',
+            2 => 'febrero',
+            3 => 'marzo',
+            4 => 'abril',
+            5 => 'mayo',
+            6 => 'junio',
+            7 => 'julio',
+            8 => 'agosto',
+            9 => 'septiembre',
+            10 => 'octubre',
+            11 => 'noviembre',
+            12 => 'diciembre',
+        ];
+
         return sprintf(
             '%d de %s de %d',
             $fecha->day,
-            $fecha->translatedFormat('F'),
+            $meses[$fecha->month],
             $fecha->year
         );
     }

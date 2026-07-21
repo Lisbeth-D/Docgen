@@ -1,4 +1,8 @@
 <?php
+// --------------------------------------------------------------------
+// Developed by Lisbeth Díaz
+// Contact: lisbethd060@gmail.com
+// --------------------------------------------------------------------
 
 namespace App\Http\Controllers;
 
@@ -13,6 +17,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use PhpOffice\PhpWord\TemplateProcessor;
 use Throwable;
+//author: lisbethd060@gmail.com
 
 class ProcedimientoController extends Controller
 {
@@ -45,7 +50,7 @@ class ProcedimientoController extends Controller
             compact('personas', 'tipos')
         );
     }
-
+//author: lisbethd060@gmail.com
     /**
      * Guarda el procedimiento y genera el documento Word.
      */
@@ -248,7 +253,7 @@ class ProcedimientoController extends Controller
                     'La fecha final del contrato no puede ser anterior a la fecha inicial.',
             ]
         );
-
+//author: lisbethd060@gmail.com
         $persona = Persona::findOrFail($datosValidados['resp_tecnico']);
 
         $montoMaximo = $this->limpiarMonto(
@@ -286,7 +291,7 @@ class ProcedimientoController extends Controller
                         'El monto mínimo no puede ser mayor que el monto máximo.',
                 ]);
         }
-
+//author: lisbethd060@gmail.com
         /*
          * Cuando la visita o la junta no aplican, se guardan
          * sus campos de fecha y hora como NULL.
@@ -406,7 +411,7 @@ class ProcedimientoController extends Controller
                 'monto_maximo' =>
                     $montoMaximo,
             ]);
-
+//author: lisbethd060@gmail.com
             /*
              * Generar el documento Word.
              */
@@ -698,9 +703,6 @@ class ProcedimientoController extends Controller
 
             DB::commit();
 
-            /*
-             * La plantilla temporal ya no es necesaria.
-             */
             if (
                 $rutaPlantilla &&
                 File::exists($rutaPlantilla)
@@ -739,7 +741,7 @@ class ProcedimientoController extends Controller
                 );
         }
     }
-
+//author: lisbethd060@gmail.com
     /**
      * Muestra el resultado de un procedimiento.
      */
@@ -756,7 +758,7 @@ class ProcedimientoController extends Controller
             compact('procedimiento')
         );
     }
-
+//author: lisbethd060@gmail.com
     /**
      * Descarga el documento de un procedimiento.
      */
@@ -784,7 +786,7 @@ class ProcedimientoController extends Controller
 
         return response()->download($rutaDocumento);
     }
-
+//author: lisbethd060@gmail.com
     /**
      * Muestra todos los procedimientos en el módulo administrativo.
      */
@@ -803,7 +805,7 @@ class ProcedimientoController extends Controller
             compact('procedimientos')
         );
     }
-
+//author: lisbethd060@gmail.com
     /**
      * Convierte un monto recibido desde el formulario
      * en un valor decimal utilizable por MySQL.
@@ -843,7 +845,7 @@ class ProcedimientoController extends Controller
 
         return round((float) $valor, 2);
     }
-
+//author: lisbethd060@gmail.com
     /**
      * Formatea un monto para colocarlo en la plantilla Word.
      */
@@ -862,7 +864,7 @@ class ProcedimientoController extends Controller
     }
 
     /**
-     * Formatea una hora como "10:00 HORAS".
+     * Formatea una hora como "10:00 Horas".
      */
     private function formatearHora($hora): string
     {
@@ -870,11 +872,8 @@ class ProcedimientoController extends Controller
             return '';
         }
 
-        return strtoupper(
-            Carbon::createFromFormat('H:i', substr($hora, 0, 5))
-                ->format('H:i') .
-            ' horas'
-        );
+        return Carbon::createFromFormat('H:i', substr($hora, 0, 5))
+        ->format('H:i') . ' Horas';
     }
 
     /**
@@ -905,7 +904,7 @@ class ProcedimientoController extends Controller
             ? trim((string) $valor)
             : '';
     }
-
+//author: lisbethd060@gmail.com
     /**
      * Devuelve los meses utilizados en los documentos.
      */

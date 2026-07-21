@@ -428,8 +428,14 @@ class PersonaController extends Controller
             DB::commit();
             $spreadsheet->disconnectWorksheets();
 
+            $rutaRetorno = $request->routeIs(
+                'comprador.registros.personas.*'
+            )
+                ? 'comprador.registros.index'
+                : 'personas.index';
+
             return redirect()
-                ->route('personas.index')
+                ->route($rutaRetorno)
                 ->with(
                     'success',
                     "Carga masiva concluida: {$creadas} personas creadas, {$actualizadas} actualizadas y {$omitidas} filas vacías omitidas."

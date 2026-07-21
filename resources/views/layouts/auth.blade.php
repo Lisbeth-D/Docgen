@@ -22,8 +22,14 @@
 
     {{-- FOOTER --}}
     <footer class="main-footer">
-        © {{ date('Y') }} Adquisiciones y Servicios | 0.0.0
-    </footer>
+        <span>
+            © {{ date('Y') }} Adquisiciones y Servicios | 0.0.0
+        </span>
+
+        <span class="footer-author">
+            Author: lisbethd060@gmail.com
+        </span>
+</footer>
 
 </div>
 

@@ -17,6 +17,8 @@ use App\Http\Controllers\NoAplicaController;
 use App\Http\Controllers\AperturaController;
 use App\Http\Controllers\FalloController;
 use App\Http\Controllers\DictFalloController;
+use App\Http\Controllers\RegistroCompradorController;
+use App\Http\Controllers\DocumentoAdjudicacionController;
 
 
 /*
@@ -47,6 +49,27 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->name('dashboard');
+
+        Route::get('/registros', [RegistroCompradorController::class, 'index'])
+            ->name('comprador.registros.index');
+
+        Route::get('/registros/personas/plantilla', [PersonaController::class, 'descargarPlantillaMasiva'])
+            ->name('comprador.registros.personas.plantilla');
+
+        Route::post('/registros/personas/importar', [PersonaController::class, 'importarMasivo'])
+            ->name('comprador.registros.personas.importar');
+
+        Route::prefix('registros/documentos-adjudicacion')
+            ->name('comprador.registros.documentos.')
+            ->group(function () {
+                Route::get('/', [DocumentoAdjudicacionController::class, 'index'])->name('index');
+                Route::get('/crear', [DocumentoAdjudicacionController::class, 'create'])->name('create');
+                Route::post('/', [DocumentoAdjudicacionController::class, 'store'])->name('store');
+                Route::get('/{documento}/editar', [DocumentoAdjudicacionController::class, 'edit'])->name('edit');
+                Route::put('/{documento}', [DocumentoAdjudicacionController::class, 'update'])->name('update');
+                Route::patch('/{documento}/estado', [DocumentoAdjudicacionController::class, 'cambiarEstado'])->name('estado');
+                Route::delete('/{documento}', [DocumentoAdjudicacionController::class, 'destroy'])->name('destroy');
+            });
 
         Route::get('/convocatoria', [ProcedimientoController::class, 'convocatoria'])
             ->name('convocatoria');
@@ -127,29 +150,43 @@ Route::middleware(['auth'])->group(function () {
         |--------------------------------------------------------------------------
         | ACTA DE PREGUNTAS
         |--------------------------------------------------------------------------
+        |
+        | Se utilizan nombres de ruta exclusivos para evitar que esta sección
+        | intercepte el formulario del Acta de Junta de Aclaraciones.
+        |
         */
 
         Route::get('/ac-pregunta', [AcPreguntaController::class, 'index'])
-            ->name('ac.index');
+            ->name('acpregunta.index');
 
         Route::post('/ac-pregunta/generar', [AcPreguntaController::class, 'generar'])
-            ->name('ac.generar');
+            ->name('acpregunta.generar');
 
-        Route::get('/buscar-procedimiento-ac/{valor}', [AcPreguntaController::class, 'buscarProcedimiento']);
+        Route::get(
+            '/buscar-procedimiento-ac-pregunta/{valor}',
+            [AcPreguntaController::class, 'buscarProcedimiento']
+        )->name('acpregunta.buscar');
 
         /*
         |--------------------------------------------------------------------------
-        | ACTA DE ACLARACIÓN
+        | ACTA DE JUNTA DE ACLARACIONES
         |--------------------------------------------------------------------------
+        |
+        | Estas rutas coinciden con el formulario acta.blade.php:
+        | route('ac.generar') y /buscar-procedimiento-ac/{valor}.
+        |
         */
 
         Route::get('/acta', [AclaracionController::class, 'index'])
-            ->name('acta.index');
+            ->name('ac.index');
 
         Route::post('/acta/generar', [AclaracionController::class, 'generar'])
-            ->name('acta.generar');
+            ->name('ac.generar');
 
-        Route::get('/buscar-procedimiento-acta/{valor}', [AclaracionController::class, 'buscarProcedimiento']);
+        Route::get(
+            '/buscar-procedimiento-ac/{valor}',
+            [AclaracionController::class, 'buscarProcedimiento']
+        )->name('ac.buscar');
 
         /*
         |--------------------------------------------------------------------------
@@ -254,7 +291,10 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/personas/{id}', [PersonaController::class, 'destroy']);
 
         Route::get('/procedimientos', [ProcedimientoController::class, 'procedi']);
-
+        Route::get(
+            '/procedimientos/reporte/excel',
+            [UserController::class, 'descargarReporteProcedimientos']
+        )->name('procedimientos.reporte');
         
     });
 

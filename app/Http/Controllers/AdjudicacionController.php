@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DocumentoAdjudicacion;
 use App\Models\Persona;
 use App\Models\Procedimiento;
 use Carbon\Carbon;
@@ -27,9 +28,15 @@ class AdjudicacionController extends Controller
             ->orderBy('nombre')
             ->get();
 
+        $documentos = DocumentoAdjudicacion::query()
+            ->where('activo', true)
+            ->orderBy('orden')
+            ->orderBy('id_documento')
+            ->get();
+
         return view(
             'comprador.adjudicacion.adjudicacion',
-            compact('personas')
+            compact('personas', 'documentos')
         );
     }
 
@@ -221,7 +228,9 @@ class AdjudicacionController extends Controller
                 ],
 
                 'documentos.*' => [
-                    'string',
+                    'integer',
+                    'distinct',
+                    'exists:documentos_adjudicacion,id_documento',
                 ],
 
                 'archivo_word' => [
@@ -544,60 +553,49 @@ class AdjudicacionController extends Controller
         }
 
         /*
-         * Documentos solicitados.
+         * Documentos solicitados desde la base de datos.
          */
-        $mapaDocumentos = [
-            'Acta Constitutiva y reformas' =>
-                'a) Acta Constitutiva y sus reformas, señalando los siguientes datos: número de escritura, lugar y fecha de constitución, nombre y número de la notaría y notario, nombre o razón social de la empresa, objeto social de la empresa, lugar, fecha y folio del Registro Público de la Propiedad y/o acta de nacimiento.',
+        $idsDocumentos = collect(
+            $request->input('documentos', [])
+        )
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
 
-            'Poder Notarial del Representante Legal' =>
-                'b) Poder Notarial de su Representante Legal, señalando los siguientes datos: nombre del apoderado o representante legal, número de escritura, lugar, fecha y nombre de quien expide el instrumento notarial de constitución o poder, así como el RFC correspondiente.',
+        $documentosSeleccionados = DocumentoAdjudicacion::query()
+            ->where('activo', true)
+            ->where(function ($query) use ($idsDocumentos) {
+                $query->where('obligatorio', true);
 
-            'Constancia de situación fiscal' =>
-                'c) Constancia de Situación Fiscal, cuya actividad se encuentre relacionada con los bienes o servicios objeto del presente procedimiento.',
-
-            'Identificación oficial vigente' =>
-                'd) Copia simple, por ambos lados, de identificación oficial vigente, como INE o pasaporte.',
-
-            'Comprobante de domicilio' =>
-                'e) Comprobante de domicilio con una antigüedad no mayor a 60 días.',
-
-            'Opinión de cumplimiento fiscal SAT (32-D)' =>
-                'f) Opinión de cumplimiento de obligaciones fiscales emitida por el SAT, vigente y en sentido positivo.',
-
-            'Opinión de cumplimiento IMSS' =>
-                'g) Opinión de cumplimiento de obligaciones en materia de seguridad social emitida por el IMSS, vigente y en sentido positivo.',
-
-            'Opinión de cumplimiento INFONAVIT (32-D)' =>
-                'h) Constancia de situación fiscal en materia de aportaciones patronales y entero de descuentos emitida por el INFONAVIT, sin adeudo.',
-
-            'Tarjeta patronal IMSS' =>
-                'i) Tarjeta de identificación patronal emitida por el IMSS.',
-
-            'CLABE interbancaria' =>
-                'j) Documento bancario que contenga la CLABE interbancaria de la cuenta del proveedor.',
-
-            'Registro Único de Proveedores (RUP)' =>
-                'k) Registro Único de Proveedores y Contratistas vigente.',
-        ];
-
-        $documentosSeleccionados = $request->input(
-            'documentos',
-            []
-        );
+                if ($idsDocumentos->isNotEmpty()) {
+                    $query->orWhereIn(
+                        'id_documento',
+                        $idsDocumentos
+                    );
+                }
+            })
+            ->orderBy('orden')
+            ->orderBy('id_documento')
+            ->get();
 
         $documentosWord = [];
 
-        foreach ($documentosSeleccionados as $documento) {
-            if (isset($mapaDocumentos[$documento])) {
-                $documentosWord[] =
-                    $mapaDocumentos[$documento];
-            }
+        foreach ($documentosSeleccionados->values() as $indice => $documento) {
+            $documentosWord[] =
+                $this->convertirIndiceAInciso($indice) .
+                ') ' .
+                trim((string) $documento->leyenda);
         }
 
-        $textoDocumentos = !empty($documentosWord)
+        /*
+         * Agrega dos saltos de línea entre cada inciso:
+         * uno para terminar el renglón y otro para dejar
+         * un espacio en blanco antes del siguiente inciso.
+         */
+        $textoDocumentos = $documentosWord
             ? implode(
-                '</w:t><w:br/><w:t>',
+                '</w:t><w:br/><w:br/><w:t>',
                 $documentosWord
             )
             : '';
@@ -744,30 +742,54 @@ class AdjudicacionController extends Controller
             );
 
             /*
-             * Montos.
+             * Leyenda del monto según el tipo de contrato.
+             *
+             * La plantilla Word debe contener una sola etiqueta:
+             * ${leyenda_monto}
              */
+            $montoMaximoTexto = $this->numeroALetras(
+                $montoMaximo
+            );
+
             if (
                 $request->tipo_contrato_monto === 'abierto' &&
                 $montoMinimo !== null
             ) {
-                $template->setValue(
-                    'monto_minimo',
-                    $this->numeroALetras(
-                        $montoMinimo
-                    )
+                $montoMinimoTexto = $this->numeroALetras(
+                    $montoMinimo
                 );
+
+                $leyendaMonto =
+                    'le informo que se le adjudica por un importe mínimo de ' .
+                    $montoMinimoTexto .
+                    ' antes de impuestos y un importe máximo de ' .
+                    $montoMaximoTexto .
+                    ' antes de impuestos,';
             } else {
-                $template->setValue(
-                    'monto_minimo',
-                    ''
-                );
+                $leyendaMonto =
+                    'le informo que se le adjudica por un importe de ' .
+                    $montoMaximoTexto .
+                    ' antes de impuestos,';
             }
 
             $template->setValue(
+                'leyenda_monto',
+                $leyendaMonto
+            );
+
+            /*
+             * Compatibilidad con otras etiquetas de monto.
+             */
+            $template->setValue(
+                'monto_minimo',
+                $montoMinimo !== null
+                    ? $this->numeroALetras($montoMinimo)
+                    : ''
+            );
+
+            $template->setValue(
                 'monto_maximo',
-                $this->numeroALetras(
-                    $montoMaximo
-                )
+                $montoMaximoTexto
             );
 
             /*
@@ -1042,6 +1064,23 @@ class AdjudicacionController extends Controller
             $fechaInicio .
             ' al ' .
             $fechaFin;
+    }
+
+    /**
+     * Convierte un índice numérico en inciso alfabético.
+     * Ejemplos: 0 = a, 25 = z, 26 = aa.
+     */
+    private function convertirIndiceAInciso(int $indice): string
+    {
+        $resultado = '';
+
+        do {
+            $residuo = $indice % 26;
+            $resultado = chr(97 + $residuo) . $resultado;
+            $indice = intdiv($indice, 26) - 1;
+        } while ($indice >= 0);
+
+        return $resultado;
     }
 
     /**

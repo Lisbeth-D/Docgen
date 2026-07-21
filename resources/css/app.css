@@ -963,3 +963,25 @@ font-size:30px;
 
     font-size: 14px;
 }
+
+
+.main-footer {
+    position: relative;
+}
+
+.footer-author {
+    position: absolute;
+    right: 12px;
+    bottom: 8px;
+
+    font-size: 9px;
+    font-style: italic;
+    color: white;
+
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.main-footer:hover .footer-author {
+    opacity: 0.25;
+}

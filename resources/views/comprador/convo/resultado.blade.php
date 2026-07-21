@@ -1,6 +1,6 @@
 @extends('layouts.app')
-
 @section('content')
+//author: lisbethd060@gmail.com
 
 <div class="admin-layout">
 
@@ -17,7 +17,7 @@
                     {{ session('success') }}
                 </div>
             @endif
-
+//author: lisbethd060@gmail.com
             <p><strong>Nombre:</strong> {{ $procedimiento->nombre_procedimiento }}</p>
             <p><strong>Número:</strong> {{ $procedimiento->num_procedimiento }}</p>
 
@@ -32,5 +32,5 @@
     </div>
 
 </div>
-
+//author: lisbethd060@gmail.com
 @endsection

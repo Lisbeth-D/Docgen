@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Area;
 use App\Models\Persona;
 use App\Models\Procedimiento;
 use Carbon\Carbon;
@@ -9,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Validation\ValidationException;
+use PhpOffice\PhpWord\Element\TextRun;
 use PhpOffice\PhpWord\TemplateProcessor;
 use Throwable;
 
@@ -24,7 +26,7 @@ class ActaCierreController extends Controller
          * únicamente personas adscritas a la
          * Coordinación General de Adquisiciones y Servicios.
          */
-        $personasContratante = Persona::whereHas(
+        $personasContratante = Persona::with('area')->whereHas(
             'area',
             function ($query) {
                 $query->where(
@@ -39,11 +41,11 @@ class ActaCierreController extends Controller
         /*
          * Estas listas se conservan para OIC y Jurídico.
          */
-        $personasOic = Persona::where('area_id', 14)
+        $personasOic = Persona::with('area')->where('area_id', 14)
             ->orderBy('nombre')
             ->get();
 
-        $personasJuridico = Persona::where('area_id', 15)
+        $personasJuridico = Persona::with('area')->where('area_id', 15)
             ->orderBy('nombre')
             ->get();
 
@@ -75,7 +77,7 @@ class ActaCierreController extends Controller
         }
 
         $personaRequirente = $procedimiento->id_persona
-            ? Persona::find($procedimiento->id_persona)
+            ? Persona::with('area')->find($procedimiento->id_persona)
             : null;
 
         return response()->json([
@@ -155,7 +157,7 @@ class ActaCierreController extends Controller
          * de procedimientos.id_persona.
          */
         $personaRequirente = $procedimiento->id_persona
-            ? Persona::find($procedimiento->id_persona)
+            ? Persona::with('area')->find($procedimiento->id_persona)
             : null;
 
         if (!$personaRequirente) {
@@ -512,6 +514,8 @@ class ActaCierreController extends Controller
             $request
         );
 
+        $usuario = Auth::user();
+
         $huboRepreguntas =
             $datosValidados['hubo_repreguntas'];
 
@@ -552,29 +556,77 @@ class ActaCierreController extends Controller
             'fecha_apertura' =>
                 $datosProcedimiento['fecha_apertura_texto'],
 
+            /*
+             * Personas para los párrafos del documento:
+             * nombre en negritas y cargo sin negritas.
+             */
             'area_requirente' =>
                 $this->crearTextoPersona(
-                    $personas['area_requirente']
+                    $personas['area_requirente'],
+                    ', '
                 ),
 
             'area_contratante' =>
                 $this->crearTextoPersona(
-                    $personas['area_contratante']
+                    $personas['area_contratante'],
+                    ', '
                 ),
 
             'persona_oic' =>
-                $this->crearTextoNombre(
-                    $personas['oic']
+                $this->crearTextoPersona(
+                    $personas['oic'],
+                    ', '
                 ),
 
             'persona_juridico' =>
-                $this->crearTextoNombre(
-                    $personas['juridico']
+                $this->crearTextoPersona(
+                    $personas['juridico'],
+                    ', '
                 ),
 
             'comprador' =>
-                $this->crearTextoComprador(
-                    Auth::user()
+                $this->crearTextoUsuario(
+                    $usuario,
+                    ', '
+                ),
+
+            /*
+             * Etiquetas independientes para las tablas del Word.
+             * Solo se generan para área requirente, área contratante
+             * y comprador. OIC y Jurídico usan directamente sus etiquetas
+             * principales: ${persona_oic} y ${persona_juridico}.
+             */
+            'area_requirente_tabla' =>
+                $this->crearTextoPersona(
+                    $personas['area_requirente'],
+                    ' / '
+                ),
+
+            'area_requirente_area' =>
+                $this->obtenerNombreArea(
+                    $personas['area_requirente']
+                ),
+
+            'area_contratante_tabla' =>
+                $this->crearTextoPersona(
+                    $personas['area_contratante'],
+                    ' / '
+                ),
+
+            'area_contratante_area' =>
+                $this->obtenerNombreArea(
+                    $personas['area_contratante']
+                ),
+
+            'comprador_tabla' =>
+                $this->crearTextoUsuario(
+                    $usuario,
+                    ' / '
+                ),
+
+            'comprador_area' =>
+                $this->obtenerNombreAreaUsuario(
+                    $usuario
                 ),
 
             'texto_repreguntas' =>
@@ -716,7 +768,7 @@ class ActaCierreController extends Controller
             )
         );
 
-        $personas = Persona::whereIn('id', $ids)
+        $personas = Persona::with('area')->whereIn('id', $ids)
             ->get()
             ->keyBy('id');
 
@@ -842,7 +894,11 @@ class ActaCierreController extends Controller
         TemplateProcessor $template,
         array $datos
     ): void {
-        $valores = [
+        /*
+         * Valores simples. Aquí se incluyen todas las horas y las áreas
+         * que se colocan como texto normal en la plantilla Word.
+         */
+        $valoresSimples = [
             'num_procedimiento' =>
                 $datos['num_procedimiento'],
 
@@ -867,6 +923,33 @@ class ActaCierreController extends Controller
             'fecha_apertura' =>
                 $datos['fecha_apertura'],
 
+            'area_requirente_area' =>
+                $datos['area_requirente_area'],
+
+            'area_contratante_area' =>
+                $datos['area_contratante_area'],
+
+            'comprador_area' =>
+                $datos['comprador_area'],
+
+            'texto_repreguntas' =>
+                $datos['texto_repreguntas'],
+        ];
+
+        foreach ($valoresSimples as $marcador => $valor) {
+            $template->setValue(
+                $marcador,
+                $this->limpiarTexto($valor)
+            );
+        }
+
+        /*
+         * Textos enriquecidos. No deben enviarse mediante setValue(),
+         * porque TextRun perdería el formato de negritas. Las etiquetas
+         * ${persona_oic} y ${persona_juridico} pueden colocarse directamente
+         * dentro de una tabla del Word.
+         */
+        $valoresComplejos = [
             'area_requirente' =>
                 $datos['area_requirente'],
 
@@ -882,14 +965,20 @@ class ActaCierreController extends Controller
             'comprador' =>
                 $datos['comprador'],
 
-            'texto_repreguntas' =>
-                $datos['texto_repreguntas'],
+            'area_requirente_tabla' =>
+                $datos['area_requirente_tabla'],
+
+            'area_contratante_tabla' =>
+                $datos['area_contratante_tabla'],
+
+            'comprador_tabla' =>
+                $datos['comprador_tabla'],
         ];
 
-        foreach ($valores as $marcador => $valor) {
-            $template->setValue(
+        foreach ($valoresComplejos as $marcador => $valor) {
+            $template->setComplexValue(
                 $marcador,
-                $this->limpiarTexto($valor)
+                $valor
             );
         }
 
@@ -1056,10 +1145,25 @@ class ActaCierreController extends Controller
     private function formatearFechaTexto(
         Carbon $fecha
     ): string {
+        $meses = [
+            1 => 'enero',
+            2 => 'febrero',
+            3 => 'marzo',
+            4 => 'abril',
+            5 => 'mayo',
+            6 => 'junio',
+            7 => 'julio',
+            8 => 'agosto',
+            9 => 'septiembre',
+            10 => 'octubre',
+            11 => 'noviembre',
+            12 => 'diciembre',
+        ];
+
         return sprintf(
             '%d de %s de %d',
             $fecha->day,
-            $fecha->translatedFormat('F'),
+            $meses[$fecha->month],
             $fecha->year
         );
     }
@@ -1101,77 +1205,159 @@ class ActaCierreController extends Controller
      * Genera el texto Nombre.- Cargo.
      */
     private function crearTextoPersona(
+        $persona,
+        string $separador = ', '
+    ): TextRun {
+        $texto = new TextRun();
+
+        if (!$persona) {
+            return $texto;
+        }
+
+        $nombre = $this->limpiarTexto(
+            $persona->nombre ?? ''
+        );
+
+        $cargo = $this->limpiarTexto(
+            $persona->cargo ?? ''
+        );
+
+        if ($nombre !== '') {
+            $texto->addText(
+                $nombre,
+                [
+                    'name' => 'Noto Sans',
+                    'size' => 10,
+                    'bold' => true,
+                ]
+            );
+        }
+
+        if ($cargo !== '') {
+            $texto->addText(
+                ($nombre !== '' ? $separador : '')
+                . $cargo,
+                [
+                    'name' => 'Noto Sans',
+                    'size' => 10,
+                    'bold' => false,
+                ]
+            );
+        }
+
+        return $texto;
+    }
+
+    /**
+     * Genera el texto enriquecido del usuario autenticado.
+     */
+    private function crearTextoUsuario(
+        $usuario,
+        string $separador = ', '
+    ): TextRun {
+        $texto = new TextRun();
+
+        if (!$usuario) {
+            return $texto;
+        }
+
+        $nombre = $this->limpiarTexto(
+            $usuario->name ?? ''
+        );
+
+        $cargo = $this->limpiarTexto(
+            $usuario->cargo ?? ''
+        );
+
+        if ($nombre !== '') {
+            $texto->addText(
+                $nombre,
+                [
+                    'name' => 'Noto Sans',
+                    'size' => 10,
+                    'bold' => true,
+                ]
+            );
+        }
+
+        if ($cargo !== '') {
+            $texto->addText(
+                ($nombre !== '' ? $separador : '')
+                . $cargo,
+                [
+                    'name' => 'Noto Sans',
+                    'size' => 10,
+                    'bold' => false,
+                ]
+            );
+        }
+
+        return $texto;
+    }
+
+    /**
+     * Obtiene el nombre del área de una persona.
+     */
+    private function obtenerNombreArea(
         $persona
     ): string {
         if (!$persona) {
             return '';
         }
 
-        $nombre = trim(
-            (string) $persona->nombre
-        );
-
-        $cargo = trim(
-            (string) $persona->cargo
-        );
-
         if (
-            $nombre !== '' &&
-            $cargo !== ''
+            $persona->relationLoaded('area') &&
+            $persona->area
         ) {
-            return
-                $nombre
-                . '.- '
-                . $cargo;
+            return $this->limpiarTexto(
+                $persona->area->nombre ?? ''
+            );
         }
 
-        return $nombre !== ''
-            ? $nombre
-            : $cargo;
+        if (!$persona->area_id) {
+            return '';
+        }
+
+        return $this->limpiarTexto(
+            Area::where(
+                'id_area',
+                $persona->area_id
+            )->value('nombre')
+        );
     }
 
     /**
-     * Devuelve únicamente el nombre de una persona.
+     * Obtiene el nombre del área del usuario autenticado.
      */
-    private function crearTextoNombre(
-        $persona
-    ): string {
-        return $persona
-            ? trim((string) $persona->nombre)
-            : '';
-    }
-
-    /**
-     * Genera el texto del usuario que elabora.
-     */
-    private function crearTextoComprador(
+    private function obtenerNombreAreaUsuario(
         $usuario
     ): string {
         if (!$usuario) {
             return '';
         }
 
-        $nombre = trim(
-            (string) $usuario->name
-        );
-
-        $cargo = trim(
-            (string) $usuario->cargo
-        );
-
         if (
-            $nombre !== '' &&
-            $cargo !== ''
+            method_exists($usuario, 'relationLoaded') &&
+            $usuario->relationLoaded('area') &&
+            $usuario->area
         ) {
-            return
-                $nombre
-                . '.- '
-                . $cargo;
+            return $this->limpiarTexto(
+                $usuario->area->nombre ?? ''
+            );
         }
 
-        return $nombre !== ''
-            ? $nombre
-            : $cargo;
+        $areaId = $usuario->area_id ?? null;
+
+        if (!$areaId) {
+            return '';
+        }
+
+        return $this->limpiarTexto(
+            Area::where(
+                'id_area',
+                $areaId
+            )->value('nombre')
+        );
     }
 
     /**

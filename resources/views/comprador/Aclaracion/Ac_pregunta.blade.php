@@ -139,6 +139,7 @@
                             <label for="fecha_ac">Fecha de la junta</label>
                             <input
                                 type="date"
+                                lang="es-MX"
                                 id="fecha_ac"
                                 name="fecha_ac"
                                 value="{{ old('fecha_ac') }}"
@@ -214,6 +215,7 @@
                                 @foreach ($personasContratante as $persona)
                                     <option
                                         value="{{ $persona->id }}"
+                                        data-referencia="{{ $persona->plantilla_referencia }}"
                                         @selected(
                                             (string) old('area_contratante')
                                             === (string) $persona->id
@@ -275,19 +277,18 @@
 
                     <div class="conv-grid">
                         <div class="conv-group">
-                            <label for="numero_oficio_preguntas">Número del oficio de preguntas</label>
+                            <label for="oficio_preguntas">Referencia del oficio de preguntas</label>
                             <input
-                                type="number"
-                                id="numero_oficio_preguntas"
-                                name="numero_oficio_preguntas"
-                                value="{{ old('numero_oficio_preguntas') }}"
-                                placeholder="Ejemplo: 132"
-                                min="0"
-                                step="1"
+                                type="text"
+                                id="oficio_preguntas"
+                                name="oficio_preguntas"
+                                value="{{ old('oficio_preguntas') }}"
+                                placeholder="Seleccione a la persona del área contratante"
+                                maxlength="255"
                                 required
-                            
-                                class="@error('numero_oficio_preguntas') input-error @enderror">
-                            @error('numero_oficio_preguntas')
+                                class="@error('oficio_preguntas') input-error @enderror"
+                            >
+                            @error('oficio_preguntas')
                                 <span class="field-error">{{ $message }}</span>
                             @enderror
                         </div>
@@ -296,6 +297,7 @@
                             <label for="fecha_oficio_preguntas">Fecha del oficio de preguntas</label>
                             <input
                                 type="date"
+                                lang="es-MX"
                                 id="fecha_oficio_preguntas"
                                 name="fecha_oficio_preguntas"
                                 value="{{ old('fecha_oficio_preguntas') }}"
@@ -308,19 +310,18 @@
                         </div>
 
                         <div class="conv-group">
-                            <label for="numero_oficio_respuestas">Número del oficio de respuestas</label>
+                            <label for="oficio_respuestas">Referencia del oficio de respuestas</label>
                             <input
-                                type="number"
-                                id="numero_oficio_respuestas"
-                                name="numero_oficio_respuestas"
-                                value="{{ old('numero_oficio_respuestas') }}"
-                                placeholder="Ejemplo: 122"
-                                min="0"
-                                step="1"
+                                type="text"
+                                id="oficio_respuestas"
+                                name="oficio_respuestas"
+                                value="{{ old('oficio_respuestas') }}"
+                                placeholder="Se cargará desde la persona requirente"
+                                maxlength="255"
                                 required
-                            
-                                class="@error('numero_oficio_respuestas') input-error @enderror">
-                            @error('numero_oficio_respuestas')
+                                class="@error('oficio_respuestas') input-error @enderror"
+                            >
+                            @error('oficio_respuestas')
                                 <span class="field-error">{{ $message }}</span>
                             @enderror
                         </div>
@@ -329,6 +330,7 @@
                             <label for="fecha_oficio_respuestas">Fecha del oficio de respuestas</label>
                             <input
                                 type="date"
+                                lang="es-MX"
                                 id="fecha_oficio_respuestas"
                                 name="fecha_oficio_respuestas"
                                 value="{{ old('fecha_oficio_respuestas') }}"
@@ -548,6 +550,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputAreaRequirente = document.getElementById('area_requirente');
     const inputAreaRequirenteNombre =
         document.getElementById('area_requirente_nombre');
+    const selectAreaContratante =
+        document.getElementById('area_contratante');
+    const inputOficioPreguntas =
+        document.getElementById('oficio_preguntas');
+    const inputOficioRespuestas =
+        document.getElementById('oficio_respuestas');
     const estadoBusqueda = document.getElementById('estado_busqueda');
 
     let temporizadorBusqueda = null;
@@ -622,6 +630,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 respuesta.area_requirente_id || '';
             inputAreaRequirenteNombre.value =
                 respuesta.area_requirente_nombre || '';
+            inputOficioRespuestas.value =
+                respuesta.plantilla_referencia_requirente || '';
 
             if (!respuesta.area_requirente_id) {
                 throw new Error(
@@ -655,6 +665,7 @@ document.addEventListener('DOMContentLoaded', () => {
         inputHoraAc.value = '';
         inputAreaRequirente.value = '';
         inputAreaRequirenteNombre.value = '';
+        inputOficioRespuestas.value = '';
     }
 
     function mostrarEstadoBusqueda(mensaje, tipo = 'info') {
@@ -771,6 +782,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return false;
     }
+
+    selectAreaContratante.addEventListener('change', () => {
+        const opcionSeleccionada =
+            selectAreaContratante.options[
+                selectAreaContratante.selectedIndex
+            ];
+
+        inputOficioPreguntas.value =
+            opcionSeleccionada?.dataset?.referencia || '';
+    });
 
     const areaContratoSelect = document.getElementById('area_contrato_select');
     const personaContratoSelect = document.getElementById('persona_contrato_select');

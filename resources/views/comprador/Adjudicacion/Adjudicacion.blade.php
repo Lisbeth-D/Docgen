@@ -76,6 +76,12 @@
                             class="@error('archivo_word') input-error @enderror"
                         >
 
+                        <small class="form-help">
+                            Utilice una sola plantilla para contratos abiertos y cerrados.
+                            En el Word coloque la etiqueta ${leyenda_monto} donde debe
+                            aparecer el texto completo del importe.
+                        </small>
+
                         @error('archivo_word')
                             <span class="field-error">
                                 {{ $message }}
@@ -492,8 +498,11 @@
 
                         <div class="conv-group">
 
-                            <label for="monto_maximo">
-                                Monto máximo
+                            <label
+                                for="monto_maximo"
+                                id="label_monto_maximo"
+                            >
+                                Monto del contrato
                             </label>
 
                             <input
@@ -509,6 +518,11 @@
                             <small
                                 id="max_letra"
                                 class="money-preview"
+                            ></small>
+
+                            <small
+                                id="ayuda_monto_maximo"
+                                class="form-help"
                             ></small>
 
                             @error('monto_maximo')
@@ -640,60 +654,67 @@
                     <h3>Documentos requeridos</h3>
 
                     @php
-                        $docs = [
-                            'Acta Constitutiva y reformas',
-                            'Poder Notarial del Representante Legal',
-                            'Constancia de situación fiscal',
-                            'Identificación oficial vigente',
-                            'Comprobante de domicilio',
-                            'Opinión de cumplimiento fiscal SAT (32-D)',
-                            'Opinión de cumplimiento IMSS',
-                            'Opinión de cumplimiento INFONAVIT (32-D)',
-                            'Tarjeta patronal IMSS',
-                            'CLABE interbancaria',
-                            'Registro Único de Proveedores (RUP)',
-                        ];
-
-                        $documentosSeleccionados = old('documentos', []);
+                        $documentosSeleccionados = array_map(
+                            'strval',
+                            old('documentos', [])
+                        );
                     @endphp
 
                     <div class="documents-grid">
 
-                        @foreach ($docs as $doc)
+                        @forelse ($documentos as $documento)
 
                             <label class="document-option">
 
-                                <input
-                                    type="checkbox"
-                                    name="documentos[]"
-                                    value="{{ $doc }}"
-                                    @checked(
-                                        in_array(
-                                            $doc,
-                                            $documentosSeleccionados,
-                                            true
-                                        )
-                                    )
-                                >
+                                @if ($documento->obligatorio)
+                                    <input
+                                        type="hidden"
+                                        name="documentos[]"
+                                        value="{{ $documento->id_documento }}"
+                                    >
 
-                                <span>{{ $doc }}</span>
+                                    <input type="checkbox" checked disabled>
+                                @else
+                                    <input
+                                        type="checkbox"
+                                        name="documentos[]"
+                                        value="{{ $documento->id_documento }}"
+                                        @checked(
+                                            in_array(
+                                                (string) $documento->id_documento,
+                                                $documentosSeleccionados,
+                                                true
+                                            )
+                                        )
+                                    >
+                                @endif
+
+                                <span>
+                                    {{ $documento->nombre }}
+
+                                    @if ($documento->obligatorio)
+                                        <small class="required-document">
+                                            Obligatorio
+                                        </small>
+                                    @endif
+                                </span>
 
                             </label>
 
-                        @endforeach
+                        @empty
+                            <p class="form-help">
+                                No existen documentos activos en el catálogo.
+                            </p>
+                        @endforelse
 
                     </div>
 
                     @error('documentos')
-                        <span class="field-error">
-                            {{ $message }}
-                        </span>
+                        <span class="field-error">{{ $message }}</span>
                     @enderror
 
                     @error('documentos.*')
-                        <span class="field-error">
-                            {{ $message }}
-                        </span>
+                        <span class="field-error">{{ $message }}</span>
                     @enderror
 
                 </div>
@@ -840,6 +861,16 @@
         margin-top: 3px;
         flex-shrink: 0;
     }
+    .required-document {
+        display: inline-block;
+        margin-left: 7px;
+        padding: 2px 7px;
+        border-radius: 999px;
+        color: #7a1623;
+        background: #f8e9ee;
+        font-size: 11px;
+        font-weight: 700;
+    }
 </style>
 
 <script>
@@ -877,6 +908,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const maxLetra =
         document.getElementById('max_letra');
+
+    const labelMontoMaximo =
+        document.getElementById('label_monto_maximo');
+
+    const ayudaMontoMaximo =
+        document.getElementById('ayuda_monto_maximo');
 
     const mensajeBusqueda =
         document.getElementById('mensaje_busqueda');
@@ -1067,6 +1104,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (tipoContrato === 'abierto') {
 
             grupoMontoMinimo.style.display = 'block';
+            labelMontoMaximo.textContent = 'Monto máximo';
+            ayudaMontoMaximo.textContent =
+                'Para contrato abierto se utilizarán el monto mínimo y el monto máximo.';
 
             if (
                 recalcularMinimo ||
@@ -1089,6 +1129,10 @@ document.addEventListener('DOMContentLoaded', function () {
             grupoMontoMinimo.style.display = 'none';
             inputMontoMinimo.value = '';
             minLetra.textContent = '';
+
+            labelMontoMaximo.textContent = 'Monto del contrato';
+            ayudaMontoMaximo.textContent =
+                'Para contrato cerrado este será el único importe incorporado al Word.';
 
         }
 
