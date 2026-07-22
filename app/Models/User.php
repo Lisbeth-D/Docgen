@@ -3,10 +3,12 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+
+use App\Notifications\ResetPasswordNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use App\Notifications\ResetPasswordNotification;
 
 class User extends Authenticatable
 {
@@ -14,15 +16,10 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     /**
-     * The attributes that are mass assignable.
+     * Atributos que pueden asignarse masivamente.
      *
      * @var list<string>
      */
-
-        public function sendPasswordResetNotification($token)
-    {
-        $this->notify(new ResetPasswordNotification($token));
-    }
     protected $fillable = [
         'name',
         'username',
@@ -30,11 +27,11 @@ class User extends Authenticatable
         'password',
         'role',
         'cargo',
-        'activo'
+        'activo',
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
+     * Atributos ocultos durante la serialización.
      *
      * @var list<string>
      */
@@ -44,7 +41,7 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
+     * Conversión de atributos.
      *
      * @return array<string, string>
      */
@@ -53,5 +50,26 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Envía la notificación para restablecer la contraseña.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(
+            new ResetPasswordNotification($token)
+        );
+    }
+
+    /**
+     * Documentos generados por el usuario.
+     */
+    public function documentosGenerados(): HasMany
+    {
+        return $this->hasMany(
+            DocumentoGenerado::class,
+            'user_id'
+        );
     }
 }

@@ -12,10 +12,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpWord\Element\TextRun;
 use PhpOffice\PhpWord\TemplateProcessor;
-use DOMDocument;
-use DOMXPath;
 use Throwable;
-use ZipArchive;
 
 class AclaracionController extends Controller
 {
@@ -796,9 +793,6 @@ class AclaracionController extends Controller
         TemplateProcessor $template,
         array $datos
     ): void {
-        /*
-         * Valores simples.
-         */
         $valoresSimples = [
             'num_procedimiento' =>
                 $datos['num_procedimiento'],
@@ -838,65 +832,113 @@ class AclaracionController extends Controller
             );
         }
 
+        $this->colocarTextoComplejo(
+            $template,
+            'area_requirente',
+            $datos['area_requirente']
+        );
+
+        $this->colocarTextoComplejo(
+            $template,
+            'area_contratante',
+            $datos['area_contratante']
+        );
+
+        $this->colocarTextoComplejo(
+            $template,
+            'comprador',
+            $datos['comprador']
+        );
+
+        $this->colocarTextoComplejo(
+            $template,
+            'area_requirente_tabla',
+            $datos['area_requirente_tabla']
+        );
+
+        $this->colocarTextoComplejo(
+            $template,
+            'area_contratante_tabla',
+            $datos['area_contratante_tabla']
+        );
+
+        $this->colocarTextoComplejo(
+            $template,
+            'comprador_tabla',
+            $datos['comprador_tabla']
+        );
+
         /*
-         * Valores enriquecidos:
-         * el nombre se inserta en negritas y el cargo sin negritas.
+         * Estas etiquetas pueden aparecer en el cuerpo y en una tabla.
+         * setComplexValue reemplaza una sola aparición por llamada.
          */
-        $valoresComplejos = [
-            'area_requirente' =>
-                $datos['area_requirente'],
+        $this->colocarTextoComplejoRepetido(
+            $template,
+            'persona_oic',
+            $datos['persona_oic'],
+            2
+        );
 
-            'area_contratante' =>
-                $datos['area_contratante'],
-
-            'persona_oic' =>
-                $datos['persona_oic'],
-
-            'persona_juridico' =>
-                $datos['persona_juridico'],
-
-            'comprador' =>
-                $datos['comprador'],
-
-            'area_requirente_tabla' =>
-                $datos['area_requirente_tabla'],
-
-            'area_contratante_tabla' =>
-                $datos['area_contratante_tabla'],
-
-            'comprador_tabla' =>
-                $datos['comprador_tabla'],
-        ];
-
-        foreach ($valoresComplejos as $marcador => $valor) {
-            /*
-             * PhpWord no elimina correctamente un marcador complejo
-             * cuando el TextRun está vacío. En ese caso lo sustituimos
-             * como texto simple para evitar que aparezca literalmente
-             * ${persona_juridico}, ${persona_oic}, etc.
-             */
-            if (
-                $valor instanceof TextRun
-                && count($valor->getElements()) === 0
-            ) {
-                $template->setValue(
-                    $marcador,
-                    ''
-                );
-
-                continue;
-            }
-
-            $template->setComplexValue(
-                $marcador,
-                $valor
-            );
-        }
+        $this->colocarTextoComplejoRepetido(
+            $template,
+            'persona_juridico',
+            $datos['persona_juridico'],
+            2
+        );
 
         $this->clonarParticipantes(
             $template,
             $datos['participantes']
         );
+    }
+
+    /**
+     * Coloca una etiqueta compleja o la elimina cuando está vacía.
+     */
+    private function colocarTextoComplejo(
+        TemplateProcessor $template,
+        string $marcador,
+        TextRun $valor
+    ): void {
+        if (count($valor->getElements()) === 0) {
+            $template->setValue(
+                $marcador,
+                ''
+            );
+
+            return;
+        }
+
+        $template->setComplexValue(
+            $marcador,
+            $valor
+        );
+    }
+
+    /**
+     * Reemplaza varias apariciones de una misma etiqueta compleja.
+     */
+    private function colocarTextoComplejoRepetido(
+        TemplateProcessor $template,
+        string $marcador,
+        TextRun $valor,
+        int $apariciones
+    ): void {
+        if (count($valor->getElements()) === 0) {
+            $template->setValue(
+                $marcador,
+                ''
+            );
+
+            return;
+        }
+
+        for ($i = 0; $i < $apariciones; $i++) {
+            $template->setComplexValue(
+                $marcador,
+                clone $valor
+            );
+        }
     }
 
     /**
@@ -974,308 +1016,10 @@ class AclaracionController extends Controller
             $nombre
         );
 
-        $ruta =
+        return
             $directorio
             . DIRECTORY_SEPARATOR
             . $nombre;
-
-        /*
-         * Word puede dividir visualmente una etiqueta en varios fragmentos XML.
-         * Por ejemplo:
-         * ${persona_ + juridico}
-         *
-         * Aunque en Word se vea completa, TemplateProcessor no la encuentra.
-         * Esta normalización vuelve a unir las etiquetas antes de procesarlas.
-         */
-        $this->normalizarMarcadoresWord(
-            $ruta
-        );
-
-        return $ruta;
-    }
-
-    /**
-     * Repara marcadores que Microsoft Word dividió entre varios nodos <w:t>.
-     *
-     * TemplateProcessor sólo reconoce una etiqueta cuando está completa
-     * dentro del XML. Esta rutina reconstruye las etiquetas sin alterar
-     * el diseño de la plantilla.
-     */
-    private function normalizarMarcadoresWord(
-        string $rutaDocumento
-    ): void {
-        $marcadores = [
-            '${num_procedimiento}',
-            '${nombre_procedimiento}',
-            '${fecha_ac}',
-            '${hora_ac}',
-            '${hora_cierre}',
-            '${fecha_apertura}',
-            '${area_requirente}',
-            '${area_contratante}',
-            '${persona_oic}',
-            '${persona_juridico}',
-            '${ref_oic}',
-            '${ref_juridico}',
-            '${comprador}',
-            '${area_requirente_tabla}',
-            '${area_requirente_area}',
-            '${area_contratante_tabla}',
-            '${area_contratante_area}',
-            '${comprador_tabla}',
-            '${empresa}',
-            '${pregunta}',
-        ];
-
-        $zip = new ZipArchive();
-
-        if (
-            $zip->open($rutaDocumento)
-            !== true
-        ) {
-            throw new \RuntimeException(
-                'No fue posible abrir la plantilla Word para normalizar sus etiquetas.'
-            );
-        }
-
-        try {
-            for (
-                $indice = 0;
-                $indice < $zip->numFiles;
-                $indice++
-            ) {
-                $nombreEntrada = $zip->getNameIndex(
-                    $indice
-                );
-
-                if (
-                    !$nombreEntrada
-                    || !str_starts_with(
-                        $nombreEntrada,
-                        'word/'
-                    )
-                    || !str_ends_with(
-                        $nombreEntrada,
-                        '.xml'
-                    )
-                ) {
-                    continue;
-                }
-
-                $xml = $zip->getFromIndex(
-                    $indice
-                );
-
-                if (
-                    $xml === false
-                    || !str_contains(
-                        $xml,
-                        '$'
-                    )
-                ) {
-                    continue;
-                }
-
-                $xmlNormalizado =
-                    $this->normalizarMarcadoresXml(
-                        $xml,
-                        $marcadores
-                    );
-
-                if ($xmlNormalizado !== $xml) {
-                    $zip->addFromString(
-                        $nombreEntrada,
-                        $xmlNormalizado
-                    );
-                }
-            }
-        } finally {
-            $zip->close();
-        }
-    }
-
-    /**
-     * Une un marcador dividido entre varios nodos de texto del XML.
-     */
-    private function normalizarMarcadoresXml(
-        string $xml,
-        array $marcadores
-    ): string {
-        $dom = new DOMDocument(
-            '1.0',
-            'UTF-8'
-        );
-
-        $dom->preserveWhiteSpace = true;
-        $dom->formatOutput = false;
-
-        $estadoAnterior =
-            libxml_use_internal_errors(true);
-
-        try {
-            if (!$dom->loadXML($xml)) {
-                return $xml;
-            }
-        } finally {
-            libxml_clear_errors();
-            libxml_use_internal_errors(
-                $estadoAnterior
-            );
-        }
-
-        $xpath = new DOMXPath($dom);
-        $xpath->registerNamespace(
-            'w',
-            'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
-        );
-
-        $nodos = [];
-
-        foreach (
-            $xpath->query('//w:t') as $nodo
-        ) {
-            $nodos[] = $nodo;
-        }
-
-        if (!$nodos) {
-            return $xml;
-        }
-
-        foreach ($marcadores as $marcador) {
-            /*
-             * Se repite porque una misma etiqueta puede existir
-             * varias veces en el documento.
-             */
-            while (
-                $this->unirPrimeraCoincidencia(
-                    $nodos,
-                    $marcador
-                )
-            ) {
-                // Continúa hasta reparar todas las apariciones.
-            }
-        }
-
-        return $dom->saveXML() ?: $xml;
-    }
-
-    /**
-     * Une la primera aparición de un marcador fragmentado.
-     */
-    private function unirPrimeraCoincidencia(
-        array $nodos,
-        string $marcador
-    ): bool {
-        $textoCompleto = '';
-        $rangos = [];
-
-        foreach ($nodos as $indice => $nodo) {
-            $inicio = mb_strlen(
-                $textoCompleto
-            );
-
-            $contenido = (string) $nodo->nodeValue;
-            $textoCompleto .= $contenido;
-
-            $rangos[] = [
-                'indice' => $indice,
-                'inicio' => $inicio,
-                'fin' =>
-                    $inicio
-                    + mb_strlen($contenido),
-            ];
-        }
-
-        $posicion = mb_strpos(
-            $textoCompleto,
-            $marcador
-        );
-
-        if ($posicion === false) {
-            return false;
-        }
-
-        $finMarcador =
-            $posicion
-            + mb_strlen($marcador);
-
-        $primerRango = null;
-        $ultimoRango = null;
-
-        foreach ($rangos as $rango) {
-            if (
-                $primerRango === null
-                && $posicion < $rango['fin']
-            ) {
-                $primerRango = $rango;
-            }
-
-            if (
-                $finMarcador > $rango['inicio']
-                && $finMarcador <= $rango['fin']
-            ) {
-                $ultimoRango = $rango;
-                break;
-            }
-        }
-
-        if (
-            $primerRango === null
-            || $ultimoRango === null
-        ) {
-            return false;
-        }
-
-        /*
-         * Si ya está contenido en un solo nodo, no requiere reparación.
-         */
-        if (
-            $primerRango['indice']
-            === $ultimoRango['indice']
-        ) {
-            return false;
-        }
-
-        $primerNodo =
-            $nodos[$primerRango['indice']];
-
-        $ultimoNodo =
-            $nodos[$ultimoRango['indice']];
-
-        $offsetInicio =
-            $posicion
-            - $primerRango['inicio'];
-
-        $offsetFin =
-            $finMarcador
-            - $ultimoRango['inicio'];
-
-        $prefijo = mb_substr(
-            (string) $primerNodo->nodeValue,
-            0,
-            $offsetInicio
-        );
-
-        $sufijo = mb_substr(
-            (string) $ultimoNodo->nodeValue,
-            $offsetFin
-        );
-
-        $primerNodo->nodeValue =
-            $prefijo
-            . $marcador;
-
-        for (
-            $indice = $primerRango['indice'] + 1;
-            $indice < $ultimoRango['indice'];
-            $indice++
-        ) {
-            $nodos[$indice]->nodeValue = '';
-        }
-
-        $ultimoNodo->nodeValue = $sufijo;
-
-        return true;
     }
 
     /**

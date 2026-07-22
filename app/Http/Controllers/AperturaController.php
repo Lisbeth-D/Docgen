@@ -7,11 +7,15 @@ use App\Models\Persona;
 use App\Models\Procedimiento;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpWord\Element\TextRun;
 use PhpOffice\PhpWord\TemplateProcessor;
+use DOMDocument;
+use DOMXPath;
 use Throwable;
+use ZipArchive;
 
 class AperturaController extends Controller
 {
@@ -227,13 +231,24 @@ class AperturaController extends Controller
                 $request
             );
 
+            /*
+             * Se leen directamente de la plantilla el tipo y tamaño
+             * de letra de cada etiqueta. Así el controlador no impone
+             * una fuente o tamaño fijo.
+             */
+            $estilosMarcadores =
+                $this->leerEstilosMarcadoresWord(
+                    $templatePath
+                );
+
             $template = new TemplateProcessor(
                 $templatePath
             );
 
             $this->llenarPlantilla(
                 $template,
-                $datosDocumento
+                $datosDocumento,
+                $estilosMarcadores
             );
 
             [
@@ -488,6 +503,8 @@ class AperturaController extends Controller
             $personas['area_requirente']->area_id,
         ]);
 
+        $usuario = Auth::user();
+
         return [
             'num_procedimiento' =>
                 $datosProcedimiento['numero'],
@@ -521,6 +538,17 @@ class AperturaController extends Controller
 
             'oic' =>
                 $personas['oic'],
+
+            /*
+             * Usuario que está generando el documento.
+             */
+            'comprador' =>
+                $usuario,
+
+            'comprador_area' =>
+                $this->obtenerNombreAreaUsuario(
+                    $usuario
+                ),
 
             'area_contratante_nombre' =>
                 $nombresAreas->get(
@@ -764,83 +792,221 @@ class AperturaController extends Controller
     /**
      * Coloca todos los valores en la plantilla.
      */
-    private function llenarPlantilla(
+  private function llenarPlantilla(
+    TemplateProcessor $template,
+    array $datos,
+    array $estilosMarcadores
+): void {
+    /*
+     * Valores simples.
+     */
+    $valores = [
+        'num_procedimiento' =>
+            $datos['num_procedimiento'],
+
+        'nombre_procedimiento' =>
+            $datos['nombre_procedimiento'],
+
+        'fecha_apertura' =>
+            $datos['fecha_apertura'],
+
+        'hora_apertura' =>
+            $datos['hora_apertura'],
+
+        'horaap_cierre' =>
+            $datos['horaap_cierre'],
+
+        'fecha_fallo' =>
+            $datos['fecha_fallo'],
+
+        /*
+         * Etiquetas anteriores para las áreas.
+         */
+        'area_area_contratante' =>
+            $datos['area_contratante_nombre'],
+
+        'area_admi_contrato' =>
+            $datos['area_administrador_nombre'],
+
+        'area_area_requirente' =>
+            $datos['area_requirente_nombre'],
+
+        /*
+         * Etiquetas para la columna "Área" de las tablas.
+         */
+        'area_contratante_area' =>
+            $datos['area_contratante_nombre'],
+
+        'encargado_contrato_area' =>
+            $datos['area_administrador_nombre'],
+
+        'area_requirente_area' =>
+            $datos['area_requirente_nombre'],
+    ];
+
+    foreach ($valores as $marcador => $valor) {
+        $template->setValue(
+            $marcador,
+            $this->limpiarTexto($valor)
+        );
+    }
+
+    /*
+     * Etiquetas del cuerpo del documento.
+     * Formato: Nombre, Cargo
+     */
+    $this->colocarPersonaConEstiloPlantilla(
+        $template,
+        'area_contratante',
+        $datos['area_contratante'],
+        ', ',
+        $estilosMarcadores
+    );
+
+    $this->colocarPersonaConEstiloPlantilla(
+        $template,
+        'encargado_contrato',
+        $datos['administrador'],
+        ', ',
+        $estilosMarcadores
+    );
+
+    $this->colocarPersonaConEstiloPlantilla(
+        $template,
+        'area_requirente',
+        $datos['area_requirente'],
+        ', ',
+        $estilosMarcadores
+    );
+
+    $this->colocarUsuarioConEstiloPlantilla(
+        $template,
+        'comprador',
+        $datos['comprador'],
+        ', ',
+        $estilosMarcadores
+    );
+
+    /*
+     * Etiquetas para las tablas.
+     * Formato: Nombre / Cargo
+     */
+    $this->colocarPersonaConEstiloPlantilla(
+        $template,
+        'area_contratante_tabla',
+        $datos['area_contratante'],
+        ' / ',
+        $estilosMarcadores
+    );
+
+    $this->colocarPersonaConEstiloPlantilla(
+        $template,
+        'encargado_contrato_tabla',
+        $datos['administrador'],
+        ' / ',
+        $estilosMarcadores
+    );
+
+    $this->colocarPersonaConEstiloPlantilla(
+        $template,
+        'area_requirente_tabla',
+        $datos['area_requirente'],
+        ' / ',
+        $estilosMarcadores
+    );
+
+    $this->colocarUsuarioConEstiloPlantilla(
+        $template,
+        'comprador_tabla',
+        $datos['comprador'],
+        ' / ',
+        $estilosMarcadores
+    );
+
+    /*
+     * OIC y Jurídico.
+     */
+    $this->colocarPersonaConEstiloPlantilla(
+        $template,
+        'persona_oic',
+        $datos['oic'],
+        ', ',
+        $estilosMarcadores
+    );
+
+    $this->colocarPersonaConEstiloPlantilla(
+        $template,
+        'persona_juridico',
+        $datos['juridico'],
+        ', ',
+        $estilosMarcadores
+    );
+}
+
+    /**
+     * Reemplaza todas las apariciones de una etiqueta de persona.
+     *
+     * El nombre se inserta en negritas y el cargo sin negritas.
+     * La fuente y el tamaño se toman de cada etiqueta colocada en Word.
+     */
+    private function colocarPersonaConEstiloPlantilla(
         TemplateProcessor $template,
-        array $datos
+        string $marcador,
+        ?Persona $persona,
+        string $separador,
+        array $estilosMarcadores
     ): void {
-        $valores = [
-            'num_procedimiento' =>
-                $datos['num_procedimiento'],
+        $estilos = $estilosMarcadores[$marcador] ?? [[]];
 
-            'nombre_procedimiento' =>
-                $datos['nombre_procedimiento'],
-
-            'fecha_apertura' =>
-                $datos['fecha_apertura'],
-
-            'hora_apertura' =>
-                $datos['hora_apertura'],
-
-            'horaap_cierre' =>
-                $datos['horaap_cierre'],
-
-            'fecha_fallo' =>
-                $datos['fecha_fallo'],
-
-            'area_area_contratante' =>
-                $datos['area_contratante_nombre'],
-
-            'area_admi_contrato' =>
-                $datos['area_administrador_nombre'],
-
-            'area_area_requirente' =>
-                $datos['area_requirente_nombre'],
-        ];
-
-        foreach ($valores as $marcador => $valor) {
+        if (!$persona) {
             $template->setValue(
                 $marcador,
-                $this->limpiarTexto($valor)
+                ''
             );
+
+            return;
         }
 
-        $personas = [
-            'area_contratante' =>
-                $datos['area_contratante'],
-
-            'encargado_contrato' =>
-                $datos['administrador'],
-
-            'admi_contrato' =>
-                $datos['administrador'],
-
-            'area_requirente' =>
-                $datos['area_requirente'],
-
-            'persona_juridico' =>
-                $datos['juridico'],
-
-            'persona_oic' =>
-                $datos['oic'],
-
-            'area_contratante_tabla' =>
-                $datos['area_contratante'],
-
-            'encargado_contrato_tabla' =>
-                $datos['administrador'],
-
-            'admi_contrato_tabla' =>
-                $datos['administrador'],
-
-            'area_requirente_tabla' =>
-                $datos['area_requirente'],
-        ];
-
-        foreach ($personas as $marcador => $persona) {
+        foreach ($estilos as $estilo) {
             $template->setComplexValue(
                 $marcador,
                 $this->crearTextoPersona(
-                    $persona
+                    $persona,
+                    $separador,
+                    $estilo
+                )
+            );
+        }
+    }
+
+    /**
+     * Reemplaza las etiquetas correspondientes al usuario autenticado.
+     */
+    private function colocarUsuarioConEstiloPlantilla(
+        TemplateProcessor $template,
+        string $marcador,
+        $usuario,
+        string $separador,
+        array $estilosMarcadores
+    ): void {
+        $estilos = $estilosMarcadores[$marcador] ?? [[]];
+
+        if (!$usuario) {
+            $template->setValue(
+                $marcador,
+                ''
+            );
+
+            return;
+        }
+
+        foreach ($estilos as $estilo) {
+            $template->setComplexValue(
+                $marcador,
+                $this->crearTextoUsuario(
+                    $usuario,
+                    $separador,
+                    $estilo
                 )
             );
         }
@@ -878,6 +1044,223 @@ class AperturaController extends Controller
             'nombre',
             'id_area'
         );
+    }
+
+    /**
+     * Obtiene el nombre del área del usuario autenticado.
+     */
+    private function obtenerNombreAreaUsuario(
+        $usuario
+    ): string {
+        if (!$usuario) {
+            return '';
+        }
+
+        if (
+            method_exists($usuario, 'relationLoaded')
+            && $usuario->relationLoaded('area')
+            && $usuario->area
+        ) {
+            return $this->limpiarTexto(
+                $usuario->area->nombre ?? ''
+            );
+        }
+
+        $areaId = $usuario->area_id ?? null;
+
+        if (!$areaId) {
+            return '';
+        }
+
+        return $this->limpiarTexto(
+            Area::where(
+                'id_area',
+                $areaId
+            )->value('nombre')
+        );
+    }
+
+    /**
+     * Lee de la plantilla Word el tipo y tamaño de letra de cada etiqueta.
+     *
+     * De esta forma, el usuario controla el tamaño desde la propia
+     * plantilla y el controlador sólo aplica negritas al nombre.
+     */
+    private function leerEstilosMarcadoresWord(
+        string $rutaDocumento
+    ): array {
+        $marcadores = [
+            'area_contratante',
+            'encargado_contrato',
+            'admi_contrato',
+            'area_requirente',
+            'comprador',
+            'area_contratante_tabla',
+            'encargado_contrato_tabla',
+            'admi_contrato_tabla',
+            'area_requirente_tabla',
+            'comprador_tabla',
+            'persona_oic',
+            'persona_juridico',
+        ];
+
+        $resultado = [];
+        $zip = new ZipArchive();
+
+        if ($zip->open($rutaDocumento) !== true) {
+            return $resultado;
+        }
+
+        try {
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $entrada = $zip->getNameIndex($i);
+
+                if (
+                    !$entrada
+                    || !str_starts_with($entrada, 'word/')
+                    || !str_ends_with($entrada, '.xml')
+                ) {
+                    continue;
+                }
+
+                $xml = $zip->getFromIndex($i);
+
+                if ($xml === false || !str_contains($xml, '${')) {
+                    continue;
+                }
+
+                $this->extraerEstilosMarcadoresXml(
+                    $xml,
+                    $marcadores,
+                    $resultado
+                );
+            }
+        } finally {
+            $zip->close();
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Extrae el formato de cada etiqueta encontrada en un XML de Word.
+     */
+    private function extraerEstilosMarcadoresXml(
+        string $xml,
+        array $marcadores,
+        array &$resultado
+    ): void {
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        $dom->preserveWhiteSpace = true;
+
+        $estadoAnterior = libxml_use_internal_errors(true);
+
+        try {
+            if (!$dom->loadXML($xml)) {
+                return;
+            }
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($estadoAnterior);
+        }
+
+        $xpath = new DOMXPath($dom);
+        $xpath->registerNamespace(
+            'w',
+            'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+        );
+
+        foreach ($xpath->query('//w:r') as $run) {
+            $texto = '';
+
+            foreach ($xpath->query('.//w:t', $run) as $nodoTexto) {
+                $texto .= (string) $nodoTexto->nodeValue;
+            }
+
+            foreach ($marcadores as $marcador) {
+                if (!str_contains($texto, '${' . $marcador . '}')) {
+                    continue;
+                }
+
+                $resultado[$marcador][] =
+                    $this->extraerEstiloRunWord(
+                        $xpath,
+                        $run
+                    );
+            }
+        }
+    }
+
+    /**
+     * Convierte las propiedades del marcador Word a formato PhpWord.
+     */
+    private function extraerEstiloRunWord(
+        DOMXPath $xpath,
+        $run
+    ): array {
+        $estilo = [];
+
+        $fuente = $xpath->query(
+            './w:rPr/w:rFonts',
+            $run
+        )->item(0);
+
+        if ($fuente) {
+            $nombreFuente =
+                $fuente->getAttributeNS(
+                    'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+                    'ascii'
+                )
+                ?: $fuente->getAttributeNS(
+                    'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+                    'hAnsi'
+                );
+
+            if ($nombreFuente !== '') {
+                $estilo['name'] = $nombreFuente;
+            }
+        }
+
+        $tamano = $xpath->query(
+            './w:rPr/w:sz',
+            $run
+        )->item(0);
+
+        if ($tamano) {
+            $valor = $tamano->getAttributeNS(
+                'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+                'val'
+            );
+
+            if (is_numeric($valor)) {
+                $estilo['size'] = ((float) $valor) / 2;
+            }
+        }
+
+        $color = $xpath->query(
+            './w:rPr/w:color',
+            $run
+        )->item(0);
+
+        if ($color) {
+            $valorColor = $color->getAttributeNS(
+                'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+                'val'
+            );
+
+            if (
+                $valorColor !== ''
+                && strtoupper($valorColor) !== 'AUTO'
+            ) {
+                $estilo['color'] = $valorColor;
+            }
+        }
+
+        if ($xpath->query('./w:rPr/w:i', $run)->length > 0) {
+            $estilo['italic'] = true;
+        }
+
+        return $estilo;
     }
 
     /**
@@ -957,7 +1340,9 @@ class AperturaController extends Controller
      * Genera texto enriquecido para una persona.
      */
     private function crearTextoPersona(
-        ?Persona $persona
+        ?Persona $persona,
+        string $separador = ', ',
+        array $estiloBase = []
     ): TextRun {
         $textRun = new TextRun();
 
@@ -965,34 +1350,78 @@ class AperturaController extends Controller
             return $textRun;
         }
 
-        $nombre = trim(
-            (string) $persona->nombre
+        $nombre = $this->limpiarTexto(
+            $persona->nombre ?? ''
         );
 
-        $cargo = trim(
-            (string) $persona->cargo
+        $cargo = $this->limpiarTexto(
+            $persona->cargo ?? ''
         );
 
         if ($nombre !== '') {
             $textRun->addText(
                 $nombre,
-                [
-                    'name' => 'Noto Sans',
-                    'size' => 10,
-                    'bold' => true,
-                ]
+                array_merge(
+                    $estiloBase,
+                    ['bold' => true]
+                )
             );
         }
 
         if ($cargo !== '') {
+            $estiloCargo = $estiloBase;
+            $estiloCargo['bold'] = false;
+
             $textRun->addText(
-                ($nombre !== '' ? ', ' : '')
+                ($nombre !== '' ? $separador : '')
                 . $cargo,
-                [
-                    'name' => 'Noto Sans',
-                    'size' => 10,
-                    'bold' => false,
-                ]
+                $estiloCargo
+            );
+        }
+
+        return $textRun;
+    }
+
+    /**
+     * Genera texto enriquecido para el usuario autenticado.
+     */
+    private function crearTextoUsuario(
+        $usuario,
+        string $separador = ', ',
+        array $estiloBase = []
+    ): TextRun {
+        $textRun = new TextRun();
+
+        if (!$usuario) {
+            return $textRun;
+        }
+
+        $nombre = $this->limpiarTexto(
+            $usuario->name ?? ''
+        );
+
+        $cargo = $this->limpiarTexto(
+            $usuario->cargo ?? ''
+        );
+
+        if ($nombre !== '') {
+            $textRun->addText(
+                $nombre,
+                array_merge(
+                    $estiloBase,
+                    ['bold' => true]
+                )
+            );
+        }
+
+        if ($cargo !== '') {
+            $estiloCargo = $estiloBase;
+            $estiloCargo['bold'] = false;
+
+            $textRun->addText(
+                ($nombre !== '' ? $separador : '')
+                . $cargo,
+                $estiloCargo
             );
         }
 
@@ -1038,10 +1467,25 @@ class AperturaController extends Controller
     private function formatearFechaTexto(
         Carbon $fecha
     ): string {
+        $meses = [
+            1 => 'enero',
+            2 => 'febrero',
+            3 => 'marzo',
+            4 => 'abril',
+            5 => 'mayo',
+            6 => 'junio',
+            7 => 'julio',
+            8 => 'agosto',
+            9 => 'septiembre',
+            10 => 'octubre',
+            11 => 'noviembre',
+            12 => 'diciembre',
+        ];
+
         return sprintf(
             '%d de %s de %d',
             $fecha->day,
-            $fecha->translatedFormat('F'),
+            $meses[$fecha->month],
             $fecha->year
         );
     }

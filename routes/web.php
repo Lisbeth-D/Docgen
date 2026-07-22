@@ -19,6 +19,7 @@ use App\Http\Controllers\FalloController;
 use App\Http\Controllers\DictFalloController;
 use App\Http\Controllers\RegistroCompradorController;
 use App\Http\Controllers\DocumentoAdjudicacionController;
+use App\Http\Controllers\HistorialDocumentosController;
 
 
 /*
@@ -36,7 +37,35 @@ Route::get('/', function () {
 | RUTAS PROTEGIDAS (USUARIO AUTENTICADO)
 |--------------------------------------------------------------------------
 */
+Route::middleware('auth')
+    ->prefix('historial-documentos')
+    ->name('historial-documentos.')
+    ->group(function () {
+        Route::get(
+            '/',
+            [
+                HistorialDocumentosController::class,
+                'index',
+            ]
+        )->name('index');
 
+        Route::get(
+            '/{documento}/descargar',
+            [
+                HistorialDocumentosController::class,
+                'descargar',
+            ]
+        )->name('descargar');
+
+        Route::delete(
+            '/{documento}',
+            [
+                HistorialDocumentosController::class,
+                'eliminar',
+            ]
+        )->name('eliminar');
+    });
+    
 Route::middleware(['auth'])->group(function () {
 
     /*

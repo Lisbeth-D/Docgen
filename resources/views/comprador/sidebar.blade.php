@@ -59,13 +59,22 @@
 
             <ul class="submenu" id="aclaracionesSubmenu">
                 <li>
-                    <div class="menu-title submenu-title" onclick="toggleSiAplica()">
+                    <div
+                        class="menu-title submenu-title"
+                        onclick="toggleSiAplica()"
+                    >
                         <i data-feather="check-square"></i>
                         <span>Sí aplica junta</span>
-                        <i data-feather="chevron-down" class="chevron"></i>
+                        <i
+                            data-feather="chevron-down"
+                            class="chevron"
+                        ></i>
                     </div>
 
-                    <ul class="submenu nested" id="siAplicaSubmenu">
+                    <ul
+                        class="submenu nested"
+                        id="siAplicaSubmenu"
+                    >
                         <li>
                             <a href="{{ route('acpregunta.index') }}">
                                 <span>Acta de preguntas</span>
@@ -74,7 +83,7 @@
 
                         <li>
                             <a href="{{ route('ac.index') }}">
-                                <span>Acta de Junta de Aclaraciones</span>
+                                <span>Acta</span>
                             </a>
                         </li>
 
@@ -131,6 +140,14 @@
             <a href="{{ route('comprador.registros.index') }}">
                 <i data-feather="database"></i>
                 <span>Registros</span>
+            </a>
+        </li>
+
+        {{-- HISTORIAL DE DOCUMENTOS --}}
+        <li>
+            <a href="{{ route('historial-documentos.index') }}">
+                <i data-feather="clock"></i>
+                <span>Historial de documentos</span>
             </a>
         </li>
 

@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Validation\ValidationException;
+use PhpOffice\PhpWord\Element\TextRun;
 use PhpOffice\PhpWord\TemplateProcessor;
 use Throwable;
 
@@ -367,7 +368,9 @@ class NoAplicaController extends Controller
                 $datosProcedimiento['nombre'],
 
             'fecha_apertura' =>
-                $datosProcedimiento['fecha_apertura'],
+                $this->crearTextoFechaNegrita(
+                    $datosProcedimiento['fecha_apertura']
+                ),
 
             'correo_comprador' =>
                 $request->filled('correo_comprador')
@@ -438,9 +441,11 @@ class NoAplicaController extends Controller
                 $nombre,
 
             'fecha_apertura' =>
-                Carbon::parse(
-                    $fechaApertura
-                )->format('d/m/Y'),
+                $this->formatearFechaTexto(
+                    Carbon::parse(
+                        $fechaApertura
+                    )
+                ),
         ];
     }
 
@@ -451,15 +456,12 @@ class NoAplicaController extends Controller
         TemplateProcessor $template,
         array $datos
     ): void {
-        $valores = [
+        $valoresSimples = [
             'num_procedimiento' =>
                 $datos['num_procedimiento'],
 
             'nombre_procedimiento' =>
                 $datos['nombre_procedimiento'],
-
-            'fecha_apertura' =>
-                $datos['fecha_apertura'],
 
             'correo_comprador' =>
                 $datos['correo_comprador'],
@@ -471,12 +473,17 @@ class NoAplicaController extends Controller
                 $datos['elaboro'],
         ];
 
-        foreach ($valores as $marcador => $valor) {
+        foreach ($valoresSimples as $marcador => $valor) {
             $template->setValue(
                 $marcador,
                 $this->limpiarTexto($valor)
             );
         }
+
+        $template->setComplexValue(
+            'fecha_apertura',
+            $datos['fecha_apertura']
+        );
     }
 
     /**
@@ -641,6 +648,58 @@ class NoAplicaController extends Controller
         }
 
         return $textoElaboro;
+    }
+
+    /**
+     * Formatea una fecha en español.
+     *
+     * Ejemplo:
+     * 30 de julio del 2026
+     */
+    private function formatearFechaTexto(
+        Carbon $fecha
+    ): string {
+        $meses = [
+            1 => 'enero',
+            2 => 'febrero',
+            3 => 'marzo',
+            4 => 'abril',
+            5 => 'mayo',
+            6 => 'junio',
+            7 => 'julio',
+            8 => 'agosto',
+            9 => 'septiembre',
+            10 => 'octubre',
+            11 => 'noviembre',
+            12 => 'diciembre',
+        ];
+
+        return sprintf(
+            '%d de %s del %d',
+            $fecha->day,
+            $meses[$fecha->month],
+            $fecha->year
+        );
+    }
+
+    /**
+     * Crea la fecha completa en negritas para insertarla en Word.
+     */
+    private function crearTextoFechaNegrita(
+        string $fecha
+    ): TextRun {
+        $texto = new TextRun();
+
+        $texto->addText(
+            $this->limpiarTexto($fecha),
+            [
+                'name' => 'Noto Sans',
+                'size' => 11,
+                'bold' => true,
+            ]
+        );
+
+        return $texto;
     }
 
     /**

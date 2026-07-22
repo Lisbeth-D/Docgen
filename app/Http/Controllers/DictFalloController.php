@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Area;
 use App\Models\Persona;
 use App\Models\Procedimiento;
+use App\Services\HistorialDocumentosService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -64,7 +65,10 @@ class DictFalloController extends Controller
         ]);
     }
 
-    public function generar(Request $request)
+    public function generar(
+        Request $request,
+        HistorialDocumentosService $historialDocumentos
+    )
     {
         $datos = $request->validate(
             $this->reglasValidacion(),
@@ -111,9 +115,18 @@ class DictFalloController extends Controller
         $valores = [
             'num_procedimiento' => trim((string) ($request->num_procedimiento ?: $procedimiento->num_procedimiento)),
             'nombre_procedimiento' => trim((string) ($request->nombre_procedimiento ?: $procedimiento->nombre_procedimiento)),
-            'hora_fallo' => Carbon::parse($request->hora_fallo)->format('H:i') . ' horas',
+            /*
+             * ${fecha_fallo} contiene la hora y la fecha completas.
+             * Ejemplo: 11:00 horas del día 21 de julio de 2026.
+             */
             'fecha_fallo' => Carbon::parse($request->hora_fallo)->format('H:i')
                 . ' horas del día ' . $this->fechaTexto($request->fecha_fallo),
+
+            /*
+             * ${fecha_fallo_sola} contiene únicamente la fecha.
+             * Ejemplo: 21 de julio de 2026.
+             */
+            'fecha_fallo_sola' => $this->fechaTexto($request->fecha_fallo),
             'fecha_publicacion' => $this->fechaTexto($request->fecha_publicacion),
             'fecha_acl' => $this->fechaTexto($request->fecha_acl),
             'conv_dispo' => $this->fechaTexto($request->conv_dispo),
@@ -157,11 +170,35 @@ class DictFalloController extends Controller
                 );
             }
 
-            [$salida, $nombreArchivo] = $this->guardarDocumento($template, $procedimiento);
+            [$salida, $nombreArchivo] = $this->guardarDocumento(
+                $template,
+                $procedimiento
+            );
+
+            /*
+             * Registra una copia del documento en el historial del usuario
+             * autenticado. El servicio también elimina los documentos
+             * vencidos antes de guardar el nuevo archivo.
+             */
+            $historialDocumentos->registrar(
+                $request->user(),
+                $salida,
+                $nombreArchivo,
+                'Dictamen de fallo',
+                trim((string) $procedimiento->num_procedimiento),
+                10
+            );
+
             $this->eliminarArchivo($plantillaTemporal);
             $plantillaTemporal = null;
 
-            return response()->download($salida, $nombreArchivo)->deleteFileAfterSend(true);
+            /*
+             * El archivo temporal se elimina después de enviarse. La copia
+             * registrada en el historial permanecerá disponible 10 días.
+             */
+            return response()
+                ->download($salida, $nombreArchivo)
+                ->deleteFileAfterSend(true);
         } catch (Throwable $e) {
             $this->eliminarArchivo($salida);
             report($e);
@@ -293,26 +330,62 @@ class DictFalloController extends Controller
 
     private function numeroLicitantesTexto(int $numero): string
     {
+        /*
+         * Para un solo licitante:
+         * UNA (1) proposición
+         */
+        if ($numero === 1) {
+            return 'UNA (1) proposición';
+        }
+
         $palabra = '';
 
         if (class_exists(NumberFormatter::class)) {
-            $formateador = new NumberFormatter('es', NumberFormatter::SPELLOUT);
-            $palabra = (string) $formateador->format($numero);
+            $formateador = new NumberFormatter(
+                'es',
+                NumberFormatter::SPELLOUT
+            );
+
+            $palabra = (string) $formateador->format(
+                $numero
+            );
         }
 
         $alternativas = [
-            1 => 'una', 2 => 'dos', 3 => 'tres', 4 => 'cuatro', 5 => 'cinco',
-            6 => 'seis', 7 => 'siete', 8 => 'ocho', 9 => 'nueve', 10 => 'diez',
-            11 => 'once', 12 => 'doce', 13 => 'trece', 14 => 'catorce', 15 => 'quince',
-            16 => 'dieciséis', 17 => 'diecisiete', 18 => 'dieciocho',
-            19 => 'diecinueve', 20 => 'veinte',
+            2 => 'dos',
+            3 => 'tres',
+            4 => 'cuatro',
+            5 => 'cinco',
+            6 => 'seis',
+            7 => 'siete',
+            8 => 'ocho',
+            9 => 'nueve',
+            10 => 'diez',
+            11 => 'once',
+            12 => 'doce',
+            13 => 'trece',
+            14 => 'catorce',
+            15 => 'quince',
+            16 => 'dieciséis',
+            17 => 'diecisiete',
+            18 => 'dieciocho',
+            19 => 'diecinueve',
+            20 => 'veinte',
         ];
 
-        $palabra = $numero === 1
-            ? 'una'
-            : ($palabra ?: ($alternativas[$numero] ?? (string) $numero));
+        if ($palabra === '') {
+            $palabra =
+                $alternativas[$numero]
+                ?? (string) $numero;
+        }
 
-        return mb_strtolower($palabra, 'UTF-8') . ' (' . $numero . ')';
+        return mb_strtolower(
+            $palabra,
+            'UTF-8'
+        )
+            . ' ('
+            . $numero
+            . ') proposiciones';
     }
 
     private function fechaTexto($fecha): string

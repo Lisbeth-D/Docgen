@@ -9,6 +9,7 @@ namespace App\Http\Controllers;
 use App\Models\Persona;
 use App\Models\Procedimiento;
 use App\Models\TipoProcedimiento;
+use App\Services\HistorialDocumentosService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -54,7 +55,10 @@ class ProcedimientoController extends Controller
     /**
      * Guarda el procedimiento y genera el documento Word.
      */
-    public function store(Request $request)
+    public function store(
+        Request $request,
+        HistorialDocumentosService $historialDocumentos
+    )
     {
         $datosValidados = $request->validate(
             [
@@ -700,6 +704,20 @@ class ProcedimientoController extends Controller
                 'ruta_documento' =>
                     'documentos/' . $nombreDocumento,
             ]);
+
+            /*
+             * Registrar una copia de la convocatoria en el historial
+             * del usuario autenticado. El servicio conserva el archivo
+             * durante 10 días y elimina previamente los vencidos.
+             */
+            $historialDocumentos->registrar(
+                $request->user(),
+                $rutaDocumento,
+                $nombreDocumento,
+                'Convocatoria',
+                trim((string) $procedimiento->num_procedimiento),
+                10
+            );
 
             DB::commit();
 

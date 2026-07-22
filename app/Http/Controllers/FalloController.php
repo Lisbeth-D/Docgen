@@ -7,6 +7,7 @@ use App\Models\Persona;
 use App\Models\Procedimiento;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpWord\Element\TextRun;
@@ -455,6 +456,8 @@ class FalloController extends Controller
             $personas['area_requirente']->area_id,
         ]);
 
+        $usuario = Auth::user();
+
         return [
             'num_procedimiento' =>
                 $datosProcedimiento['numero'],
@@ -482,6 +485,17 @@ class FalloController extends Controller
 
             'juridico' =>
                 $personas['juridico'],
+
+            /*
+             * Usuario que genera el documento.
+             */
+            'comprador' =>
+                $usuario,
+
+            'comprador_area' =>
+                $this->obtenerNombreAreaUsuario(
+                    $usuario
+                ),
 
             'area_contratante_nombre' =>
                 $nombresAreas->get(
@@ -679,79 +693,187 @@ class FalloController extends Controller
     /**
      * Coloca todos los valores en la plantilla Word.
      */
-    private function llenarPlantilla(
-        TemplateProcessor $template,
-        array $datos
-    ): void {
-        $valores = [
-            'num_procedimiento' =>
-                $datos['num_procedimiento'],
+ /**
+ * Coloca todos los valores en la plantilla Word.
+ */
+private function llenarPlantilla(
+    TemplateProcessor $template,
+    array $datos
+): void {
+    /*
+     * Valores simples y etiquetas para la columna de área.
+     */
+    $valores = [
+        'num_procedimiento' =>
+            $datos['num_procedimiento'],
 
-            'nombre_procedimiento' =>
-                $datos['nombre_procedimiento'],
+        'nombre_procedimiento' =>
+            $datos['nombre_procedimiento'],
 
-            'fecha_fallo' =>
-                $datos['fecha_fallo'],
+        'fecha_fallo' =>
+            $datos['fecha_fallo'],
 
-            'hora_fallo' =>
-                $datos['hora_fallo'],
+        'hora_fallo' =>
+            $datos['hora_fallo'],
 
-            'area_area_contratante' =>
-                $datos['area_contratante_nombre'],
+        /*
+         * Etiquetas anteriores.
+         */
+        'area_area_contratante' =>
+            $datos['area_contratante_nombre'],
 
-            'area_encargado_contrato' =>
-                $datos['area_encargado_nombre'],
+        'area_encargado_contrato' =>
+            $datos['area_encargado_nombre'],
 
-            'area_area_requirente' =>
-                $datos['area_requirente_nombre'],
-        ];
+        'area_area_requirente' =>
+            $datos['area_requirente_nombre'],
 
-        foreach ($valores as $marcador => $valor) {
-            $template->setValue(
-                $marcador,
-                $this->limpiarTexto($valor)
-            );
-        }
+        /*
+         * Etiquetas para la columna "Área" de la tabla.
+         */
+        'area_contratante_area' =>
+            $datos['area_contratante_nombre'],
 
-        $personas = [
-            'area_contratante' =>
-                $datos['area_contratante'],
+        'encargado_contrato_area' =>
+            $datos['area_encargado_nombre'],
 
-            'encargado_contrato' =>
-                $datos['encargado'],
+        'area_requirente_area' =>
+            $datos['area_requirente_nombre'],
 
-            'area_requirente' =>
-                $datos['area_requirente'],
+        'comprador_area' =>
+            $datos['comprador_area'],
+    ];
 
-            'persona_oic' =>
-                $datos['oic'],
+    foreach ($valores as $marcador => $valor) {
+        $template->setValue(
+            $marcador,
+            $this->limpiarTexto($valor)
+        );
+    }
 
-            'persona_juridico' =>
-                $datos['juridico'],
+    /*
+     * Etiquetas de personas del cuerpo.
+     */
+    $this->colocarPersonaEnTodasLasApariciones(
+        $template,
+        'area_contratante',
+        $datos['area_contratante']
+    );
 
-            'area_contratante_tabla' =>
-                $datos['area_contratante'],
+    $this->colocarPersonaEnTodasLasApariciones(
+        $template,
+        'encargado_contrato',
+        $datos['encargado']
+    );
 
-            'encargado_contrato_tabla' =>
-                $datos['encargado'],
+    $this->colocarPersonaEnTodasLasApariciones(
+        $template,
+        'area_requirente',
+        $datos['area_requirente']
+    );
 
-            'area_requirente_tabla' =>
-                $datos['area_requirente'],
-        ];
+    /*
+     * OIC y Jurídico:
+     * La misma etiqueta puede colocarse varias veces,
+     * tanto en el cuerpo como dentro de una tabla.
+     */
+    $this->colocarPersonaEnTodasLasApariciones(
+        $template,
+        'persona_oic',
+        $datos['oic']
+    );
 
-        foreach ($personas as $marcador => $persona) {
+    $this->colocarPersonaEnTodasLasApariciones(
+        $template,
+        'persona_juridico',
+        $datos['juridico']
+    );
+
+    /*
+     * Etiquetas independientes para las demás personas de la tabla.
+     */
+    $this->colocarPersonaEnTodasLasApariciones(
+        $template,
+        'area_contratante_tabla',
+        $datos['area_contratante']
+    );
+
+    $this->colocarPersonaEnTodasLasApariciones(
+        $template,
+        'encargado_contrato_tabla',
+        $datos['encargado']
+    );
+
+    $this->colocarPersonaEnTodasLasApariciones(
+        $template,
+        'area_requirente_tabla',
+        $datos['area_requirente']
+    );
+
+    /*
+     * Usuario autenticado dentro de la tabla.
+     */
+    $cantidadComprador =
+        $template->getVariableCount()['comprador_tabla']
+        ?? 0;
+
+    if ($datos['comprador']) {
+        for ($i = 0; $i < $cantidadComprador; $i++) {
             $template->setComplexValue(
-                $marcador,
-                $this->crearTextoPersona(
-                    $persona
+                'comprador_tabla',
+                $this->crearTextoUsuario(
+                    $datos['comprador']
                 )
             );
         }
+    } else {
+        $template->setValue(
+            'comprador_tabla',
+            ''
+        );
+    }
+}
+
+/**
+ * Reemplaza todas las apariciones de una misma etiqueta
+ * conservando el formato complejo:
+ *
+ * Nombre en negritas, cargo normal.
+ */
+private function colocarPersonaEnTodasLasApariciones(
+    TemplateProcessor $template,
+    string $marcador,
+    ?Persona $persona
+): void {
+    $variables =
+        $template->getVariableCount();
+
+    $cantidad =
+        $variables[$marcador]
+        ?? 0;
+
+    if ($cantidad === 0) {
+        return;
     }
 
-    /**
-     * Consulta el procedimiento por la parte numérica.
-     */
+    if (!$persona) {
+        $template->setValue(
+            $marcador,
+            ''
+        );
+
+        return;
+    }
+
+    for ($i = 0; $i < $cantidad; $i++) {
+        $template->setComplexValue(
+            $marcador,
+            $this->crearTextoPersona(
+                $persona
+            )
+        );
+    }
+}
     private function consultarProcedimiento(
         string $numero
     ): ?Procedimiento {
@@ -903,6 +1025,76 @@ class FalloController extends Controller
     }
 
     /**
+     * Crea un TextRun para el usuario autenticado.
+     */
+    private function crearTextoUsuario(
+        $usuario
+    ): TextRun {
+        $textRun = new TextRun();
+
+        if (!$usuario) {
+            return $textRun;
+        }
+
+        $nombre = trim(
+            (string) ($usuario->name ?? '')
+        );
+
+        $cargo = trim(
+            (string) ($usuario->cargo ?? '')
+        );
+
+        if ($nombre !== '') {
+            $textRun->addText(
+                $nombre,
+                [
+                    'bold' => true,
+                    'name' => 'Noto Sans',
+                    'size' => 10.5,
+                ]
+            );
+        }
+
+        if ($cargo !== '') {
+            $textRun->addText(
+                ($nombre !== '' ? ', ' : '')
+                . $cargo,
+                [
+                    'bold' => false,
+                    'name' => 'Noto Sans',
+                    'size' => 10.5,
+                ]
+            );
+        }
+
+        return $textRun;
+    }
+
+    /**
+     * Obtiene el nombre del área del usuario autenticado.
+     */
+    private function obtenerNombreAreaUsuario(
+        $usuario
+    ): string {
+        if (!$usuario) {
+            return '';
+        }
+
+        $areaId = $usuario->area_id ?? null;
+
+        if (!$areaId) {
+            return '';
+        }
+
+        return $this->limpiarTexto(
+            Area::where(
+                'id_area',
+                $areaId
+            )->value('nombre')
+        );
+    }
+
+    /**
      * Genera texto plano para mostrar en el formulario.
      */
     private function crearTextoPersonaPlano(
@@ -941,10 +1133,25 @@ class FalloController extends Controller
     private function formatearFechaTexto(
         Carbon $fecha
     ): string {
+        $meses = [
+            1 => 'enero',
+            2 => 'febrero',
+            3 => 'marzo',
+            4 => 'abril',
+            5 => 'mayo',
+            6 => 'junio',
+            7 => 'julio',
+            8 => 'agosto',
+            9 => 'septiembre',
+            10 => 'octubre',
+            11 => 'noviembre',
+            12 => 'diciembre',
+        ];
+
         return sprintf(
             '%d de %s de %d',
             $fecha->day,
-            $fecha->translatedFormat('F'),
+            $meses[$fecha->month],
             $fecha->year
         );
     }

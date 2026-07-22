@@ -540,6 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const form = document.getElementById('form-ac-pregunta');
     const botonGenerar = document.getElementById('btn_generar');
+    const archivoWord = document.getElementById('archivo_word');
     const alertaFormulario = document.getElementById('alerta_formulario');
 
     const inputBusqueda = document.getElementById('busqueda_proc');
@@ -1279,25 +1280,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    form.addEventListener('submit', event => {
+    form.addEventListener('submit', async event => {
         event.preventDefault();
         ocultarAlertaFormulario();
-
-        if (busquedaEnCurso) {
-            mostrarAlertaFormulario(
-                'Espere a que termine la búsqueda del procedimiento.',
-                'info'
-            );
-            return;
+        if (busquedaEnCurso){mostrarAlertaFormulario('Espere a que termine la búsqueda del procedimiento.','info');return;}
+        if(!validarFormularioPersonalizado()){return;}
+        botonGenerar.disabled=true;
+        botonGenerar.textContent='Generando documento...';
+        try{
+            const datosFormulario=new FormData(form);
+            const respuesta=await fetch(form.action,{method:'POST',body:datosFormulario,headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json, application/vnd.openxmlformats-officedocument.wordprocessingml.document'}});
+            if(!respuesta.ok){
+                if(respuesta.status===422){
+                    const e=await respuesta.json();
+                    const errs=[];Object.values(e.errors??{}).forEach(x=>x.forEach(t=>errs.push(t)));
+                    mostrarAlertaFormulario(errs.length?errs:['Revise los datos capturados.']);return;
+                }
+                throw new Error('No fue posible generar el documento.');
+            }
+            const blob=await respuesta.blob();
+            let nombre='Documento_generado.docx';
+            const d=respuesta.headers.get('Content-Disposition');
+            if(d){const m=d.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);if(m&&m[1])nombre=decodeURIComponent(m[1].replace(/["']/g,''));}
+            const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=nombre;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+            if(archivoWord){archivoWord.value='';archivoWord.classList.remove('input-error');}
+            mostrarAlertaFormulario('Documento generado correctamente. Ya puede seleccionar otra plantilla Word y generar nuevamente.','success');
+        }catch(error){
+            console.error(error);
+            mostrarAlertaFormulario(error.message||'Ocurrió un error al generar el documento.');
+        }finally{
+            botonGenerar.disabled=false;
+            botonGenerar.textContent='Generar documento';
         }
-
-        if (!validarFormularioPersonalizado()) {
-            return;
-        }
-
-        botonGenerar.disabled = true;
-        botonGenerar.textContent = 'Generando documento…';
-        form.submit();
     });
 });
 </script>

@@ -608,6 +608,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const botonGenerar =
         document.getElementById('btn_generar');
 
+    const archivoWord =
+        document.getElementById('archivo_word');
+
     const alertaFormulario =
         document.getElementById('alerta_formulario');
 
@@ -1040,7 +1043,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    formulario.addEventListener('submit', function (event) {
+    formulario.addEventListener('submit', async function (event) {
         event.preventDefault();
         ocultarAlertaFormulario();
 
@@ -1061,7 +1064,148 @@ document.addEventListener('DOMContentLoaded', function () {
         botonGenerar.textContent =
             'Generando documento...';
 
-        formulario.submit();
+        try {
+            const datosFormulario =
+                new FormData(formulario);
+
+            const respuesta = await fetch(
+                formulario.action,
+                {
+                    method: 'POST',
+                    body: datosFormulario,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept':
+                            'application/json, application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    },
+                }
+            );
+
+            if (!respuesta.ok) {
+                if (respuesta.status === 422) {
+                    const datosError =
+                        await respuesta.json();
+
+                    const errores = [];
+
+                    Object.values(
+                        datosError.errors ?? {}
+                    ).forEach(function (mensajes) {
+                        mensajes.forEach(function (texto) {
+                            errores.push(texto);
+                        });
+                    });
+
+                    mostrarAlertaFormulario(
+                        errores.length > 0
+                            ? errores
+                            : ['Revise los datos capturados.']
+                    );
+
+                    return;
+                }
+
+                let mensajeError =
+                    'No fue posible generar el documento.';
+
+                const tipoContenido =
+                    respuesta.headers.get('Content-Type')
+                    || '';
+
+                if (
+                    tipoContenido.includes(
+                        'application/json'
+                    )
+                ) {
+                    const datosError =
+                        await respuesta.json()
+                            .catch(() => null);
+
+                    mensajeError =
+                        datosError?.message
+                        || mensajeError;
+                }
+
+                throw new Error(mensajeError);
+            }
+
+            const archivo =
+                await respuesta.blob();
+
+            /*
+             * Nombre genérico de respaldo.
+             * El controlador enviará el nombre verdadero.
+             */
+            let nombreArchivo =
+                'Documento_generado.docx';
+
+            const disposicion =
+                respuesta.headers.get(
+                    'Content-Disposition'
+                );
+
+            if (disposicion) {
+                const coincidencia =
+                    disposicion.match(
+                        /filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i
+                    );
+
+                if (
+                    coincidencia
+                    && coincidencia[1]
+                ) {
+                    nombreArchivo =
+                        decodeURIComponent(
+                            coincidencia[1]
+                                .replace(/["']/g, '')
+                        );
+                }
+            }
+
+            const urlDescarga =
+                window.URL.createObjectURL(archivo);
+
+            const enlace =
+                document.createElement('a');
+
+            enlace.href = urlDescarga;
+            enlace.download = nombreArchivo;
+
+            document.body.appendChild(enlace);
+            enlace.click();
+            enlace.remove();
+
+            window.URL.revokeObjectURL(
+                urlDescarga
+            );
+
+            /*
+             * Solo limpia la plantilla Word.
+             * Los demás datos permanecen cargados.
+             */
+            if (archivoWord) {
+                archivoWord.value = '';
+                archivoWord.classList.remove(
+                    'input-error'
+                );
+            }
+
+            mostrarAlertaFormulario(
+                'Documento generado correctamente. Ya puede seleccionar otra plantilla Word y generar nuevamente.',
+                'success'
+            );
+        } catch (error) {
+            console.error(error);
+
+            mostrarAlertaFormulario(
+                error.message
+                || 'Ocurrió un error al generar el documento.'
+            );
+        } finally {
+            botonGenerar.disabled = false;
+            botonGenerar.textContent =
+                'Generar Word';
+        }
     });
 
 });

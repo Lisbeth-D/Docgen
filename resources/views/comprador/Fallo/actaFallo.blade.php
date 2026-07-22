@@ -853,7 +853,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    formulario.addEventListener('submit', function (event) {
+    formulario.addEventListener('submit', async function (event) {
         event.preventDefault();
         ocultarAlertaFormulario();
 
@@ -874,7 +874,136 @@ document.addEventListener('DOMContentLoaded', function () {
         botonGenerar.textContent =
             'Generando documento...';
 
-        formulario.submit();
+        try {
+            const datosFormulario = new FormData(formulario);
+
+            const respuesta = await fetch(
+                formulario.action,
+                {
+                    method: 'POST',
+                    body: datosFormulario,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                }
+            );
+
+            const tipoContenido =
+                respuesta.headers.get('Content-Type') || '';
+
+            if (!respuesta.ok) {
+                if (
+                    respuesta.status === 422
+                    && tipoContenido.includes('application/json')
+                ) {
+                    const datosError = await respuesta.json();
+                    const mensajes = [];
+
+                    Object.values(
+                        datosError.errors || {}
+                    ).forEach(function (erroresCampo) {
+                        erroresCampo.forEach(function (mensaje) {
+                            mensajes.push(mensaje);
+                        });
+                    });
+
+                    mostrarAlertaFormulario(
+                        mensajes.length > 0
+                            ? mensajes
+                            : ['Revise los datos capturados.']
+                    );
+
+                    return;
+                }
+
+                let mensajeError =
+                    'No fue posible generar el documento.';
+
+                if (tipoContenido.includes('application/json')) {
+                    const datosError = await respuesta.json();
+
+                    mensajeError =
+                        datosError.message || mensajeError;
+                }
+
+                throw new Error(mensajeError);
+            }
+
+            if (
+                tipoContenido.includes('text/html')
+                || tipoContenido.includes('application/json')
+            ) {
+                throw new Error(
+                    'El servidor no devolvió un documento Word válido.'
+                );
+            }
+
+            const archivo = await respuesta.blob();
+            let nombreArchivo = 'Acta_de_Fallo.docx';
+
+            const disposicion =
+                respuesta.headers.get('Content-Disposition');
+
+            if (disposicion) {
+                const coincidenciaUtf8 = disposicion.match(
+                    /filename\*=UTF-8''([^;]+)/i
+                );
+
+                const coincidenciaNormal = disposicion.match(
+                    /filename="?([^";]+)"?/i
+                );
+
+                if (coincidenciaUtf8?.[1]) {
+                    nombreArchivo = decodeURIComponent(
+                        coincidenciaUtf8[1].trim()
+                    );
+                } else if (coincidenciaNormal?.[1]) {
+                    nombreArchivo =
+                        coincidenciaNormal[1].trim();
+                }
+            }
+
+            const urlDescarga =
+                window.URL.createObjectURL(archivo);
+
+            const enlace =
+                document.createElement('a');
+
+            enlace.href = urlDescarga;
+            enlace.download = nombreArchivo;
+            document.body.appendChild(enlace);
+            enlace.click();
+            enlace.remove();
+
+            window.setTimeout(function () {
+                window.URL.revokeObjectURL(urlDescarga);
+            }, 1000);
+
+            /*
+             * Solo limpia el archivo Word para permitir cargar
+             * inmediatamente otra plantilla sin refrescar la página.
+             */
+            const inputArchivoWord =
+                document.getElementById('archivo_word');
+
+            inputArchivoWord.value = '';
+            inputArchivoWord.classList.remove('input-error');
+
+            mostrarAlertaFormulario(
+                'Documento generado correctamente. Ya puede cargar otra plantilla Word.',
+                'success'
+            );
+        } catch (error) {
+            console.error(error);
+
+            mostrarAlertaFormulario(
+                error.message
+                || 'Ocurrió un error al generar el documento.'
+            );
+        } finally {
+            botonGenerar.disabled = false;
+            botonGenerar.textContent = 'Generar Word';
+        }
     });
 
 });
