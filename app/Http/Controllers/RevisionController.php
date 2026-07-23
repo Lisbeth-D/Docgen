@@ -57,7 +57,10 @@ class RevisionController extends Controller
         ]);
     }
 
-    public function generar(Request $request)
+    public function generar(
+        Request $request,
+        HistorialDocumentosService $historialDocumentos
+    )
     {
         $request->validate(
             [
@@ -432,13 +435,64 @@ class RevisionController extends Controller
             $outputPath
         );
 
+        clearstatcache(true, $outputPath);
+
+        if (!file_exists($outputPath) || !is_file($outputPath)) {
+            if (file_exists($templatePath)) {
+                unlink($templatePath);
+            }
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'El documento fue generado, pero no se encontró en el almacenamiento.'
+                );
+        }
+
+        if ((int) filesize($outputPath) <= 0) {
+            if (file_exists($templatePath)) {
+                unlink($templatePath);
+            }
+
+            if (file_exists($outputPath)) {
+                unlink($outputPath);
+            }
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'El documento Word generado está vacío.'
+                );
+        }
+
         /*
-         * Eliminar la plantilla temporal.
+         * Registrar una copia del documento en el historial del usuario.
+         * El servicio elimina los documentos vencidos y conserva esta
+         * copia durante 10 días.
+         */
+        $historialDocumentos->registrar(
+            $request->user(),
+            $outputPath,
+            $outputName,
+            'Revisión de convocatoria',
+            trim((string) $numeroProcedimiento),
+            10
+        );
+
+        /*
+         * Eliminar únicamente la plantilla temporal.
          */
         if (file_exists($templatePath)) {
             unlink($templatePath);
         }
 
+        /*
+         * La descarga inmediata se elimina después de enviarse.
+         * La copia registrada por HistorialDocumentosService queda
+         * disponible en Historial de documentos durante 10 días.
+         */
         return response()
             ->download(
                 $outputPath,

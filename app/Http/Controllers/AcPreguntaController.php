@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Area;
 use App\Models\Persona;
 use App\Models\Procedimiento;
+use App\Services\HistorialDocumentosService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpWord\Element\Table;
@@ -133,8 +135,17 @@ class AcPreguntaController extends Controller
                     )
                     : '',
 
+            /*
+             * La persona se identifica mediante procedimientos.id_persona.
+             * De esa persona se obtiene plantilla_referencia para llenar
+             * automáticamente el campo Referencia del oficio de respuestas.
+             */
+            'oficio_respuestas' =>
+                trim((string) ($personaRequirente?->plantilla_referencia ?? '')),
+
+            /* Compatibilidad con versiones anteriores del JavaScript. */
             'plantilla_referencia_requirente' =>
-                $personaRequirente?->plantilla_referencia ?? '',
+                trim((string) ($personaRequirente?->plantilla_referencia ?? '')),
 
             'area_requirente_area' =>
                 $areaRequirente?->nombre ?? '',
@@ -144,7 +155,10 @@ class AcPreguntaController extends Controller
     /**
      * Genera el documento Word a partir de la plantilla proporcionada.
      */
-    public function generar(Request $request)
+    public function generar(
+        Request $request,
+        HistorialDocumentosService $historialDocumentos
+    )
     {
         $datosValidados = $request->validate(
             $this->reglasValidacion(),
@@ -186,8 +200,25 @@ class AcPreguntaController extends Controller
                 ]);
         }
 
+        /*
+         * El valor escrito o editado en el formulario siempre tiene prioridad.
+         * Sólo cuando llega vacío se usa plantilla_referencia de la persona
+         * identificada por procedimientos.id_persona.
+         */
+        $oficioRespuestas = $request->filled('oficio_respuestas')
+            ? trim((string) $request->input('oficio_respuestas'))
+            : trim((string) ($personaRequirente->plantilla_referencia ?? ''));
+
+        if ($oficioRespuestas === '') {
+            throw ValidationException::withMessages([
+                'oficio_respuestas' =>
+                    'La persona requirente registrada no tiene plantilla_referencia. Capture manualmente la referencia del oficio de respuestas.',
+            ]);
+        }
+
         $request->merge([
             'area_requirente' => $personaRequirente->id,
+            'oficio_respuestas' => $oficioRespuestas,
             'area_requirente_nombre' => trim(
                 $personaRequirente->nombre
                 . (
@@ -211,6 +242,10 @@ class AcPreguntaController extends Controller
 
         $templatePath = null;
         $outputPath = null;
+        $outputName = null;
+        $outputName = null;
+
+        DB::beginTransaction();
 
         try {
             Carbon::setLocale('es');
@@ -232,19 +267,57 @@ class AcPreguntaController extends Controller
                 'path' => $outputPath,
                 'name' => $outputName,
             ] = $this->guardarDocumentoGenerado(
-                $templateProcessor
+                $templateProcessor,
+                $procedimiento
             );
+
+            clearstatcache(true, $outputPath);
+
+            if (!File::exists($outputPath) || !is_file($outputPath)) {
+                throw new \RuntimeException(
+                    'El documento fue generado, pero no se encontró en el almacenamiento.'
+                );
+            }
+
+            if ((int) File::size($outputPath) <= 0) {
+                throw new \RuntimeException(
+                    'El documento Word generado está vacío.'
+                );
+            }
+
+            /*
+             * Registra el documento en el historial del usuario.
+             * El servicio conserva el archivo durante 10 días.
+             */
+            $historialDocumentos->registrar(
+                $request->user(),
+                $outputPath,
+                $outputName,
+                'Acta de preguntas',
+                trim((string) $procedimiento->num_procedimiento),
+                10
+            );
+
+            DB::commit();
 
             $this->eliminarArchivo($templatePath);
             $templatePath = null;
 
-            return response()
-                ->download(
-                    $outputPath,
-                    $outputName
-                )
-                ->deleteFileAfterSend(true);
+            /*
+             * No se utiliza deleteFileAfterSend(true), porque el archivo
+             * debe permanecer disponible para el historial.
+             */
+            return response()->download(
+                $outputPath,
+                $outputName,
+                [
+                    'Content-Type' =>
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                ]
+            );
         } catch (Throwable $e) {
+            DB::rollBack();
+
             $this->eliminarArchivo($outputPath);
 
             report($e);
@@ -253,7 +326,8 @@ class AcPreguntaController extends Controller
                 ->withInput()
                 ->with(
                     'error',
-                    'No fue posible generar el documento Word. Revisa la plantilla y vuelve a intentarlo.'
+                    'No fue posible generar o registrar el documento Word. ' .
+                    'Revisa la plantilla y vuelve a intentarlo.'
                 );
         } finally {
             $this->eliminarArchivo($templatePath);
@@ -340,7 +414,7 @@ class AcPreguntaController extends Controller
                 ),
 
             'oficio_respuestas' =>
-                trim((string) $datosValidados['oficio_respuestas']),
+                trim((string) $request->input('oficio_respuestas')),
 
             'fecha_oficio_respuestas' =>
                 $this->formatearFechaTexto(
@@ -474,7 +548,7 @@ class AcPreguntaController extends Controller
                 $fechaTexto,
 
             'hora_inicio' =>
-                $horaInicio->format('H:i'),
+                $horaInicio->format('H:i') . ' horas',
 
             'hora_cierre' =>
                 $horaCierre->format('H:i') . ' horas',
@@ -763,7 +837,8 @@ class AcPreguntaController extends Controller
      * Guarda el documento generado y devuelve su ruta y nombre.
      */
     private function guardarDocumentoGenerado(
-        TemplateProcessor $template
+        TemplateProcessor $template,
+        Procedimiento $procedimiento
     ): array {
         $directorio = storage_path(
             'app/public/documentos'
@@ -773,8 +848,25 @@ class AcPreguntaController extends Controller
             $directorio
         );
 
+        $identificador = preg_replace(
+            '/[^A-Za-z0-9_-]+/',
+            '_',
+            trim((string) $procedimiento->num_procedimiento)
+        );
+
+        $identificador = trim(
+            (string) $identificador,
+            '_'
+        );
+
+        if ($identificador === '') {
+            $identificador = 'procedimiento_' . $procedimiento->getKey();
+        }
+
         $nombre =
-            'ac_pregunta_'
+            'acta_preguntas_'
+            . $identificador
+            . '_'
             . now()->format('Ymd_His_u')
             . '.docx';
 
@@ -783,9 +875,23 @@ class AcPreguntaController extends Controller
             . DIRECTORY_SEPARATOR
             . $nombre;
 
-        $template->saveAs(
-            $ruta
-        );
+        $template->saveAs($ruta);
+
+        clearstatcache(true, $ruta);
+
+        if (!File::exists($ruta) || !is_file($ruta)) {
+            throw new \RuntimeException(
+                'PhpWord no pudo guardar el documento generado.'
+            );
+        }
+
+        if ((int) File::size($ruta) <= 0) {
+            $this->eliminarArchivo($ruta);
+
+            throw new \RuntimeException(
+                'El documento Word generado está vacío.'
+            );
+        }
 
         return [
             'path' => $ruta,
@@ -824,7 +930,7 @@ class AcPreguntaController extends Controller
             'admi_contrato'            => ['required', 'integer', 'exists:personas,id'],
 
             'oficio_preguntas'         => ['required', 'string', 'max:255'],
-            'oficio_respuestas'        => ['required', 'string', 'max:255'],
+            'oficio_respuestas'        => ['nullable', 'string', 'max:255'],
             'fecha_oficio_preguntas'   => ['required', 'date'],
             'fecha_oficio_respuestas'  => ['required', 'date'],
 

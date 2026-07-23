@@ -408,6 +408,57 @@
 
                         </div>
 
+
+                        <div class="conv-group">
+
+                            <label for="admi_contrato">
+                                Administrador del contrato
+                            </label>
+
+                            <select
+                                id="admi_contrato"
+                                name="admi_contrato"
+                                class="@error('admi_contrato') input-error @enderror"
+                                required
+                            >
+
+                                <option value="">
+                                    Seleccionar
+                                </option>
+
+                                @foreach ($areasContrato as $area)
+                                    @if ($area->personas->isNotEmpty())
+                                        <optgroup label="{{ $area->nombre }}">
+
+                                            @foreach ($area->personas as $persona)
+                                                <option
+                                                    value="{{ $persona->id }}"
+                                                    @selected(
+                                                        (string) old('admi_contrato')
+                                                        === (string) $persona->id
+                                                    )
+                                                >
+                                                    {{ $persona->nombre }}
+                                                    @if ($persona->cargo)
+                                                        - {{ $persona->cargo }}
+                                                    @endif
+                                                </option>
+                                            @endforeach
+
+                                        </optgroup>
+                                    @endif
+                                @endforeach
+
+                            </select>
+
+                            @error('admi_contrato')
+                                <span class="field-error">
+                                    {{ $message }}
+                                </span>
+                            @enderror
+
+                        </div>
+
                     </div>
 
                 </div>

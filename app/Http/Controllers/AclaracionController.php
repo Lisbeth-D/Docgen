@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Area;
 use App\Models\Persona;
 use App\Models\Procedimiento;
+use App\Services\HistorialDocumentosService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -113,7 +114,10 @@ class AclaracionController extends Controller
     /**
      * Genera el documento Word.
      */
-    public function generar(Request $request)
+    public function generar(
+        Request $request,
+        HistorialDocumentosService $historialDocumentos
+    )
     {
         $datosValidados = $request->validate(
             $this->reglasValidacion(),
@@ -194,9 +198,58 @@ class AclaracionController extends Controller
                 $templateProcessor
             );
 
+            /*
+             * Verificar que el documento se haya generado
+             * correctamente antes de registrarlo en el historial.
+             */
+            clearstatcache(
+                true,
+                $outputPath
+            );
+
+            if (
+                !File::exists($outputPath) ||
+                !File::isFile($outputPath)
+            ) {
+                throw new \RuntimeException(
+                    'El documento generado no se encontró en el almacenamiento.'
+                );
+            }
+
+            if ((int) File::size($outputPath) <= 0) {
+                throw new \RuntimeException(
+                    'El documento Word generado está vacío.'
+                );
+            }
+
+            /*
+             * Registrar una copia en el historial del usuario.
+             *
+             * La copia queda disponible durante 10 días para
+             * consultarse y descargarse nuevamente.
+             */
+            $historialDocumentos->registrar(
+                $request->user(),
+                $outputPath,
+                $outputName,
+                'Acta de junta de aclaraciones',
+                trim(
+                    (string) $datosDocumento['num_procedimiento']
+                ),
+                10
+            );
+
+            /*
+             * Eliminar únicamente la plantilla temporal.
+             */
             $this->eliminarArchivo($templatePath);
             $templatePath = null;
 
+            /*
+             * El archivo temporal utilizado para la descarga
+             * inmediata se elimina después de enviarse. La copia
+             * registrada en el historial permanece disponible.
+             */
             return response()
                 ->download(
                     $outputPath,

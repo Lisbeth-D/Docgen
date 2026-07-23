@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Persona;
 use App\Models\Procedimiento;
+use App\Services\HistorialDocumentosService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,18 +16,78 @@ class DesignacionController extends Controller
 {
     public function index()
     {
-        $personas = Persona::whereHas('area', function ($query) {
+        $nombreAreaCoordinacion =
+            'Coordinación General de Adquisiciones y Servicios';
+
+        /*
+         * Personas disponibles para seleccionar quién revisa.
+         */
+        $personas = Persona::whereHas('area', function ($query) use (
+            $nombreAreaCoordinacion
+        ) {
                 $query->where(
                     'nombre',
-                    'Coordinación General de Adquisiciones y Servicios'
+                    $nombreAreaCoordinacion
                 );
             })
             ->orderBy('nombre')
             ->get();
 
+        /*
+         * Referencia predeterminada para OIC y Jurídico.
+         *
+         * Se toma la plantilla de referencia de la única persona
+         * registrada en el área de Gerencia.
+         */
+        $personaGerencia = Persona::whereHas('area', function ($query) {
+                $query->where(
+                    'nombre',
+                    'Gerencia'
+                );
+            })
+            ->first();
+
+        $referenciaGerencia = $personaGerencia
+            ? trim((string) $personaGerencia->plantilla_referencia)
+            : '';
+
+        /*
+         * Referencia predeterminada del área requirente.
+         *
+         * Se toma la plantilla de referencia de la primera persona
+         * registrada en la Coordinación General de Adquisiciones
+         * y Servicios que tenga una plantilla capturada.
+         */
+        $personaCoordinacion = Persona::whereHas('area', function ($query) use (
+            $nombreAreaCoordinacion
+        ) {
+                $query->where(
+                    'nombre',
+                    $nombreAreaCoordinacion
+                );
+            })
+            ->whereNotNull('plantilla_referencia')
+            ->where('plantilla_referencia', '<>', '')
+            ->first();
+
+        $referenciaAreaRequirente = $personaCoordinacion
+            ? trim((string) $personaCoordinacion->plantilla_referencia)
+            : '';
+
+        /*
+         * Las tres referencias utilizarán inicialmente la misma fecha.
+         * El campo permanece editable desde el formulario.
+         */
+        $fechaReferencias = now()->format('Y-m-d');
+
         return view(
             'comprador.Designacion.Designacion',
-            compact('personas')
+            compact(
+                'personas',
+                'referenciaGerencia',
+                'referenciaAreaRequirente',
+                'fechaReferencias'
+            )
         );
     }
 
@@ -44,12 +105,33 @@ class DesignacionController extends Controller
             return response()->json(null);
         }
 
+        /*
+         * Persona del área requirente vinculada al procedimiento.
+         *
+         * El procedimiento guarda a la persona requirente en id_persona.
+         * De ella se obtienen el nombre y el cargo para autocompletar
+         * el formulario, conservando ambos campos editables.
+         */
+        $personaAreaRequirente = $procedimiento->id_persona
+            ? Persona::find($procedimiento->id_persona)
+            : null;
+
         return response()->json([
             'num_procedimiento' =>
                 $procedimiento->num_procedimiento,
 
             'nombre_procedimiento' =>
                 $procedimiento->nombre_procedimiento,
+
+            'nombre_area_requirente' =>
+                $personaAreaRequirente
+                    ? trim((string) $personaAreaRequirente->nombre)
+                    : '',
+
+            'cargo_area_requirente' =>
+                $personaAreaRequirente
+                    ? trim((string) $personaAreaRequirente->cargo)
+                    : '',
 
             'fecha_vm' =>
                 $procedimiento->fecha_vm
@@ -109,20 +191,13 @@ class DesignacionController extends Controller
         ]);
     }
 
-    public function generar(Request $request)
+    public function generar(
+        Request $request,
+        HistorialDocumentosService $historialDocumentos
+    )
     {
         $request->validate(
             [
-                'numero_referencia' => [
-                    'required',
-                    'string',
-                    'max:255',
-                ],
-
-                'fecha_oficio' => [
-                    'required',
-                    'date',
-                ],
 
                 'numero_busqueda' => [
                     'required',
@@ -147,6 +222,18 @@ class DesignacionController extends Controller
                     'nullable',
                     'string',
                     'max:1000',
+                ],
+
+                'nombre_area_requirente' => [
+                    'nullable',
+                    'string',
+                    'max:255',
+                ],
+
+                'cargo_area_requirente' => [
+                    'nullable',
+                    'string',
+                    'max:255',
                 ],
 
                 'fecha_vm' => [
@@ -189,6 +276,29 @@ class DesignacionController extends Controller
                     'date_format:H:i',
                 ],
 
+                'referencia_oic' => [
+                    'nullable',
+                    'string',
+                    'max:255',
+                ],
+
+                'referencia_juridico' => [
+                    'nullable',
+                    'string',
+                    'max:255',
+                ],
+
+                'referencia_area_requirente' => [
+                    'nullable',
+                    'string',
+                    'max:255',
+                ],
+
+                'fecha_referencias' => [
+                    'required',
+                    'date',
+                ],
+
                 'reviso_id' => [
                     'nullable',
                     'integer',
@@ -203,14 +313,29 @@ class DesignacionController extends Controller
                 ],
             ],
             [
-                'numero_referencia.required' =>
-                    'Debe ingresar el número de referencia.',
-
-                'fecha_oficio.required' =>
-                    'Debe ingresar la fecha del oficio.',
-
                 'numero_busqueda.required' =>
                     'Debe ingresar el número de búsqueda.',
+
+                'nombre_area_requirente.max' =>
+                    'El nombre del área requirente no debe exceder los 255 caracteres.',
+
+                'cargo_area_requirente.max' =>
+                    'El cargo del área requirente no debe exceder los 255 caracteres.',
+
+                'referencia_oic.max' =>
+                    'La referencia del OIC no debe exceder los 255 caracteres.',
+
+                'referencia_juridico.max' =>
+                    'La referencia de Jurídico no debe exceder los 255 caracteres.',
+
+                'referencia_area_requirente.max' =>
+                    'La referencia del área requirente no debe exceder los 255 caracteres.',
+
+                'fecha_referencias.required' =>
+                    'Debe ingresar la fecha de las referencias.',
+
+                'fecha_referencias.date' =>
+                    'La fecha de las referencias no es válida.',
 
                 'reviso_id.exists' =>
                     'La persona seleccionada para revisión no existe.',
@@ -264,6 +389,64 @@ class DesignacionController extends Controller
         )
             ? trim((string) $request->nombre_procedimiento)
             : $procedimiento->nombre_procedimiento;
+
+        /*
+         * Nombre y cargo del área requirente.
+         *
+         * Se autocompletan al buscar el procedimiento, pero se toman
+         * del formulario para respetar cualquier edición manual.
+         */
+        $nombreAreaRequirente = trim(
+            (string) $request->input(
+                'nombre_area_requirente',
+                ''
+            )
+        );
+
+        $cargoAreaRequirente = trim(
+            (string) $request->input(
+                'cargo_area_requirente',
+                ''
+            )
+        );
+
+        /*
+         * Referencias editables enviadas desde el formulario.
+         */
+        $referenciaOic = trim(
+            (string) $request->input(
+                'referencia_oic',
+                ''
+            )
+        );
+
+        $referenciaJuridico = trim(
+            (string) $request->input(
+                'referencia_juridico',
+                ''
+            )
+        );
+
+        $referenciaAreaRequirente = trim(
+            (string) $request->input(
+                'referencia_area_requirente',
+                ''
+            )
+        );
+
+        /*
+         * Las tres referencias utilizan una sola fecha.
+         *
+         * Ejemplo:
+         * 22 de julio de 2026
+         */
+        $fechaReferencias = Carbon::parse(
+            $request->fecha_referencias
+        )
+            ->locale('es')
+            ->translatedFormat(
+                'd \d\e F \d\e Y'
+            );
 
         /*
          * Persona que revisa.
@@ -340,17 +523,6 @@ class DesignacionController extends Controller
                     $cargoElaboro;
             }
         }
-
-        /*
-         * Fecha del oficio.
-         */
-        $fechaOficio = Carbon::parse(
-            $request->fecha_oficio
-        )
-            ->locale('es')
-            ->translatedFormat(
-                'd \d\e F \d\e Y'
-            );
 
         /*
          * Fechas de los eventos.
@@ -470,18 +642,59 @@ class DesignacionController extends Controller
                 );
 
             /*
-             * Etiquetas generales.
+             * Referencias de las áreas.
+             *
+             * OIC y Jurídico se autocompletan inicialmente con
+             * la plantilla de Gerencia, pero permanecen editables.
+             *
+             * El área requirente se autocompleta con la plantilla
+             * de la Coordinación General de Adquisiciones y Servicios.
              */
             $templateProcessor->setValue(
-                'numero_referencia',
+                'referencia_oic',
                 $this->valorWord(
-                    $request->numero_referencia
+                    $referenciaOic
                 )
             );
 
             $templateProcessor->setValue(
-                'fecha_oficio',
-                $fechaOficio
+                'referencia_juridico',
+                $this->valorWord(
+                    $referenciaJuridico
+                )
+            );
+
+            $templateProcessor->setValue(
+                'referencia_area_requirente',
+                $this->valorWord(
+                    $referenciaAreaRequirente
+                )
+            );
+
+            /*
+             * Una sola etiqueta de fecha puede colocarse todas
+             * las veces necesarias dentro de la plantilla Word.
+             */
+            $templateProcessor->setValue(
+                'fecha_referencias',
+                $fechaReferencias
+            );
+
+            /*
+             * Datos editables de la persona del área requirente.
+             */
+            $templateProcessor->setValue(
+                'nombre_area_requirente',
+                $this->valorWord(
+                    $nombreAreaRequirente
+                )
+            );
+
+            $templateProcessor->setValue(
+                'cargo_area_requirente',
+                $this->valorWord(
+                    $cargoAreaRequirente
+                )
             );
 
             /*
@@ -585,8 +798,41 @@ class DesignacionController extends Controller
                 $outputPath
             );
 
+            clearstatcache(
+                true,
+                $outputPath
+            );
+
+            if (
+                !File::exists($outputPath) ||
+                !File::isFile($outputPath)
+            ) {
+                throw new \RuntimeException(
+                    'El documento generado no se encontró en el almacenamiento.'
+                );
+            }
+
+            if ((int) File::size($outputPath) <= 0) {
+                throw new \RuntimeException(
+                    'El documento Word generado está vacío.'
+                );
+            }
+
             /*
-             * Eliminar la plantilla temporal.
+             * Registrar una copia en el historial del usuario.
+             * La copia queda disponible durante 10 días.
+             */
+            $historialDocumentos->registrar(
+                $request->user(),
+                $outputPath,
+                $nombreDocumento,
+                'Oficio de designación',
+                trim((string) $numeroProcedimientoWord),
+                10
+            );
+
+            /*
+             * Eliminar únicamente la plantilla temporal.
              */
             if (
                 $templatePath &&
@@ -595,6 +841,11 @@ class DesignacionController extends Controller
                 File::delete($templatePath);
             }
 
+            /*
+             * La copia temporal de descarga se elimina después
+             * de enviarse. La copia registrada en el historial
+             * permanece disponible.
+             */
             return response()
                 ->download(
                     $outputPath,

@@ -93,53 +93,6 @@
 
                     <div class="conv-grid">
 
-                        {{-- NÚMERO DE REFERENCIA --}}
-                        <div class="conv-group">
-
-                            <label for="numero_referencia">
-                                Número de referencia
-                            </label>
-
-                            <input
-                                type="text"
-                                id="numero_referencia"
-                                name="numero_referencia"
-                                value="{{ old('numero_referencia') }}"
-                                class="@error('numero_referencia') input-error @enderror"
-                                required
-                            >
-
-                            @error('numero_referencia')
-                                <span class="field-error">
-                                    {{ $message }}
-                                </span>
-                            @enderror
-
-                        </div>
-
-                        {{-- FECHA DEL OFICIO --}}
-                        <div class="conv-group">
-
-                            <label for="fecha_oficio">
-                                Fecha oficio
-                            </label>
-
-                            <input
-                                type="date"
-                                id="fecha_oficio"
-                                name="fecha_oficio"
-                                value="{{ old('fecha_oficio') }}"
-                                class="@error('fecha_oficio') input-error @enderror"
-                                required
-                            >
-
-                            @error('fecha_oficio')
-                                <span class="field-error">
-                                    {{ $message }}
-                                </span>
-                            @enderror
-
-                        </div>
 
                         {{-- BÚSQUEDA DEL PROCEDIMIENTO --}}
                         <div class="conv-group">
@@ -215,6 +168,52 @@
                             >
 
                             @error('nombre_procedimiento')
+                                <span class="field-error">
+                                    {{ $message }}
+                                </span>
+                            @enderror
+
+                        </div>
+
+                        {{-- NOMBRE DE LA PERSONA DEL ÁREA REQUIRENTE --}}
+                        <div class="conv-group">
+
+                            <label for="nombre_area_requirente">
+                                Nombre del área requirente
+                            </label>
+
+                            <input
+                                type="text"
+                                id="nombre_area_requirente"
+                                name="nombre_area_requirente"
+                                value="{{ old('nombre_area_requirente') }}"
+                                class="@error('nombre_area_requirente') input-error @enderror"
+                            >
+
+                            @error('nombre_area_requirente')
+                                <span class="field-error">
+                                    {{ $message }}
+                                </span>
+                            @enderror
+
+                        </div>
+
+                        {{-- CARGO DE LA PERSONA DEL ÁREA REQUIRENTE --}}
+                        <div class="conv-group">
+
+                            <label for="cargo_area_requirente">
+                                Cargo del área requirente
+                            </label>
+
+                            <input
+                                type="text"
+                                id="cargo_area_requirente"
+                                name="cargo_area_requirente"
+                                value="{{ old('cargo_area_requirente') }}"
+                                class="@error('cargo_area_requirente') input-error @enderror"
+                            >
+
+                            @error('cargo_area_requirente')
                                 <span class="field-error">
                                     {{ $message }}
                                 </span>
@@ -406,6 +405,100 @@
 
                         </div>
 
+
+                        {{-- REFERENCIA OIC --}}
+                        <div class="conv-group">
+
+                            <label for="referencia_oic">
+                                Referencia OIC
+                            </label>
+
+                            <input
+                                type="text"
+                                id="referencia_oic"
+                                name="referencia_oic"
+                                value="{{ old('referencia_oic', $referenciaGerencia ?? '') }}"
+                                class="@error('referencia_oic') input-error @enderror"
+                            >
+
+                            @error('referencia_oic')
+                                <span class="field-error">
+                                    {{ $message }}
+                                </span>
+                            @enderror
+
+                        </div>
+
+                        {{-- REFERENCIA JURÍDICO --}}
+                        <div class="conv-group">
+
+                            <label for="referencia_juridico">
+                                Referencia Jurídico
+                            </label>
+
+                            <input
+                                type="text"
+                                id="referencia_juridico"
+                                name="referencia_juridico"
+                                value="{{ old('referencia_juridico', $referenciaGerencia ?? '') }}"
+                                class="@error('referencia_juridico') input-error @enderror"
+                            >
+
+                            @error('referencia_juridico')
+                                <span class="field-error">
+                                    {{ $message }}
+                                </span>
+                            @enderror
+
+                        </div>
+
+                        {{-- REFERENCIA ÁREA REQUIRENTE --}}
+                        <div class="conv-group">
+
+                            <label for="referencia_area_requirente">
+                                Referencia Área requirente
+                            </label>
+
+                            <input
+                                type="text"
+                                id="referencia_area_requirente"
+                                name="referencia_area_requirente"
+                                value="{{ old('referencia_area_requirente', $referenciaAreaRequirente ?? '') }}"
+                                class="@error('referencia_area_requirente') input-error @enderror"
+                            >
+
+                            @error('referencia_area_requirente')
+                                <span class="field-error">
+                                    {{ $message }}
+                                </span>
+                            @enderror
+
+                        </div>
+
+                        {{-- FECHA ÚNICA PARA LAS TRES REFERENCIAS --}}
+                        <div class="conv-group">
+
+                            <label for="fecha_referencias">
+                                Fecha de las referencias
+                            </label>
+
+                            <input
+                                type="date"
+                                id="fecha_referencias"
+                                name="fecha_referencias"
+                                value="{{ old('fecha_referencias', $fechaReferencias ?? now()->format('Y-m-d')) }}"
+                                class="@error('fecha_referencias') input-error @enderror"
+                                required
+                            >
+
+                            @error('fecha_referencias')
+                                <span class="field-error">
+                                    {{ $message }}
+                                </span>
+                            @enderror
+
+                        </div>
+
                         {{-- PERSONA QUE REVISÓ --}}
                         <div class="conv-group">
 
@@ -536,6 +629,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const inputNombreProcedimiento =
         document.getElementById('nombre_procedimiento');
 
+    const inputNombreAreaRequirente =
+        document.getElementById('nombre_area_requirente');
+
+    const inputCargoAreaRequirente =
+        document.getElementById('cargo_area_requirente');
+
     const inputFechaVm =
         document.getElementById('fecha_vm');
 
@@ -620,6 +719,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     inputNombreProcedimiento.value =
                         data.nombre_procedimiento ?? '';
 
+                    inputNombreAreaRequirente.value =
+                        data.nombre_area_requirente ?? '';
+
+                    inputCargoAreaRequirente.value =
+                        data.cargo_area_requirente ?? '';
+
                     inputFechaVm.value =
                         data.fecha_vm ?? '';
 
@@ -685,6 +790,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         inputNumProcedimiento.value = '';
         inputNombreProcedimiento.value = '';
+
+        inputNombreAreaRequirente.value = '';
+        inputCargoAreaRequirente.value = '';
 
         inputFechaVm.value = '';
         inputHoraVm.value = '';

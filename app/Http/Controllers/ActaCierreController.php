@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Area;
 use App\Models\Persona;
 use App\Models\Procedimiento;
+use App\Services\HistorialDocumentosService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -39,6 +40,23 @@ class ActaCierreController extends Controller
             ->get();
 
         /*
+         * Áreas permitidas para seleccionar al administrador
+         * del contrato.
+         */
+        $areasContrato = Area::with([
+            'personas' => function ($query) {
+                $query->orderBy('nombre');
+            },
+        ])
+            ->whereIn('nombre', [
+                'Gerencia',
+                'Subgerencia de Operaciones',
+                'Subgerencia de Abasto',
+            ])
+            ->orderBy('nombre')
+            ->get();
+
+        /*
          * Estas listas se conservan para OIC y Jurídico.
          */
         $personasOic = Persona::with('area')->where('area_id', 14)
@@ -53,6 +71,7 @@ class ActaCierreController extends Controller
             'comprador.aclaracion.acta_cierre',
             compact(
                 'personasContratante',
+                'areasContrato',
                 'personasOic',
                 'personasJuridico'
             )
@@ -127,7 +146,10 @@ class ActaCierreController extends Controller
     /**
      * Genera el documento Word del acta de cierre.
      */
-    public function generar(Request $request)
+    public function generar(
+        Request $request,
+        HistorialDocumentosService $historialDocumentos
+    )
     {
         $datosValidados = $request->validate(
             $this->reglasValidacion(),
@@ -210,9 +232,58 @@ class ActaCierreController extends Controller
                 $templateProcessor
             );
 
+            /*
+             * Verificar que el documento se haya generado
+             * correctamente antes de guardarlo en el historial.
+             */
+            clearstatcache(
+                true,
+                $outputPath
+            );
+
+            if (
+                !File::exists($outputPath) ||
+                !File::isFile($outputPath)
+            ) {
+                throw new \RuntimeException(
+                    'El documento generado no se encontró en el almacenamiento.'
+                );
+            }
+
+            if ((int) File::size($outputPath) <= 0) {
+                throw new \RuntimeException(
+                    'El documento Word generado está vacío.'
+                );
+            }
+
+            /*
+             * Registrar una copia en el historial del usuario.
+             *
+             * La copia permanecerá disponible durante 10 días
+             * para visualizarse y descargarse nuevamente.
+             */
+            $historialDocumentos->registrar(
+                $request->user(),
+                $outputPath,
+                $outputName,
+                'Acta de cierre',
+                trim(
+                    (string) $datosDocumento['num_procedimiento']
+                ),
+                10
+            );
+
+            /*
+             * Eliminar únicamente la plantilla temporal.
+             */
             $this->eliminarArchivo($templatePath);
             $templatePath = null;
 
+            /*
+             * El archivo temporal de la descarga inmediata se elimina
+             * después de enviarse. La copia registrada en el historial
+             * permanece guardada durante 10 días.
+             */
             return response()
                 ->download(
                     $outputPath,
@@ -224,11 +295,17 @@ class ActaCierreController extends Controller
 
             report($e);
 
+            $mensajeError =
+                config('app.debug')
+                    ? 'No fue posible generar el documento Word: '
+                        . $e->getMessage()
+                    : 'No fue posible generar el documento Word. Revisa la plantilla y vuelve a intentarlo.';
+
             return back()
                 ->withInput()
                 ->with(
                     'error',
-                    'No fue posible generar el documento Word. Revisa la plantilla y vuelve a intentarlo.'
+                    $mensajeError
                 );
         } finally {
             $this->eliminarArchivo($templatePath);
@@ -297,6 +374,12 @@ class ActaCierreController extends Controller
             ],
 
             'area_contratante' => [
+                'required',
+                'integer',
+                'exists:personas,id',
+            ],
+
+            'admi_contrato' => [
                 'required',
                 'integer',
                 'exists:personas,id',
@@ -415,6 +498,12 @@ class ActaCierreController extends Controller
             'area_contratante.exists' =>
                 'La persona seleccionada del área contratante no existe.',
 
+            'admi_contrato.required' =>
+                'Debe seleccionar al administrador del contrato.',
+
+            'admi_contrato.exists' =>
+                'El administrador del contrato seleccionado no existe.',
+
             'persona_oic.exists' =>
                 'La persona seleccionada del OIC no existe.',
 
@@ -477,6 +566,9 @@ class ActaCierreController extends Controller
             'area_contratante' =>
                 'persona del área contratante',
 
+            'admi_contrato' =>
+                'administrador del contrato',
+
             'persona_oic' =>
                 'persona del OIC',
 
@@ -513,6 +605,14 @@ class ActaCierreController extends Controller
         $personas = $this->resolverPersonasDocumento(
             $request
         );
+
+        $administradorContrato =
+            $personas['administrador'];
+
+        $areaAdministradorContrato =
+            $this->obtenerNombreArea(
+                $administradorContrato
+            );
 
         $usuario = Auth::user();
 
@@ -617,6 +717,18 @@ class ActaCierreController extends Controller
                 $this->obtenerNombreArea(
                     $personas['area_contratante']
                 ),
+
+            /*
+             * Administrador del contrato para la tabla de firmas.
+             */
+            'admi_contrato_tabla' =>
+                $this->crearTextoPersona(
+                    $administradorContrato,
+                    ' / '
+                ),
+
+            'area_admi_contrato' =>
+                $areaAdministradorContrato,
 
             'comprador_tabla' =>
                 $this->crearTextoUsuario(
@@ -760,6 +872,7 @@ class ActaCierreController extends Controller
                 array_filter([
                     $request->area_requirente,
                     $request->area_contratante,
+                    $request->admi_contrato,
                     $request->persona_oic,
                     $request->persona_juridico,
                 ], static fn ($id): bool =>
@@ -780,9 +893,14 @@ class ActaCierreController extends Controller
             (int) $request->area_contratante
         );
 
+        $administrador = $personas->get(
+            (int) $request->admi_contrato
+        );
+
         if (
             !$areaRequirente ||
-            !$areaContratante
+            !$areaContratante ||
+            !$administrador
         ) {
             throw ValidationException::withMessages([
                 'area_requirente' =>
@@ -796,6 +914,9 @@ class ActaCierreController extends Controller
 
             'area_contratante' =>
                 $areaContratante,
+
+            'administrador' =>
+                $administrador,
 
             'oic' =>
                 $request->filled('persona_oic')
@@ -929,6 +1050,9 @@ class ActaCierreController extends Controller
             'area_contratante_area' =>
                 $datos['area_contratante_area'],
 
+            'area_admi_contrato' =>
+                $datos['area_admi_contrato'],
+
             'comprador_area' =>
                 $datos['comprador_area'],
 
@@ -956,12 +1080,6 @@ class ActaCierreController extends Controller
             'area_contratante' =>
                 $datos['area_contratante'],
 
-            'persona_oic' =>
-                $datos['persona_oic'],
-
-            'persona_juridico' =>
-                $datos['persona_juridico'],
-
             'comprador' =>
                 $datos['comprador'],
 
@@ -971,21 +1089,104 @@ class ActaCierreController extends Controller
             'area_contratante_tabla' =>
                 $datos['area_contratante_tabla'],
 
+            'admi_contrato_tabla' =>
+                $datos['admi_contrato_tabla'],
+
             'comprador_tabla' =>
                 $datos['comprador_tabla'],
         ];
 
         foreach ($valoresComplejos as $marcador => $valor) {
-            $template->setComplexValue(
+            $this->colocarTextoComplejo(
+                $template,
                 $marcador,
                 $valor
             );
         }
 
+        /*
+         * OIC y Jurídico usan la misma etiqueta tanto en el cuerpo
+         * del documento como dentro de la tabla de firmas.
+         *
+         * Cada llamada reemplaza una aparición y conserva:
+         * - nombre en negritas;
+         * - cargo sin negritas.
+         */
+        $this->colocarTextoComplejoRepetido(
+            $template,
+            'persona_oic',
+            $datos['persona_oic'],
+            2
+        );
+
+        $this->colocarTextoComplejoRepetido(
+            $template,
+            'persona_juridico',
+            $datos['persona_juridico'],
+            2
+        );
+
         $this->clonarParticipantes(
             $template,
-            $datos['participantes']
+            $datos['participantes'],
+            $datos['hubo_repreguntas']
         );
+    }
+
+    /**
+     * Coloca una etiqueta compleja o la reemplaza por texto vacío.
+     *
+     * Evita enviar un TextRun sin elementos a setComplexValue(),
+     * ya que PHPWord puede lanzar una excepción cuando OIC,
+     * Jurídico u otra persona opcional no fue seleccionada.
+     */
+    private function colocarTextoComplejo(
+        TemplateProcessor $template,
+        string $marcador,
+        TextRun $valor
+    ): void {
+        if (count($valor->getElements()) === 0) {
+            $template->setValue(
+                $marcador,
+                ''
+            );
+
+            return;
+        }
+
+        $template->setComplexValue(
+            $marcador,
+            $valor
+        );
+    }
+
+    /**
+     * Reemplaza varias apariciones de una misma etiqueta compleja.
+     *
+     * Se utiliza para ${persona_oic} y ${persona_juridico},
+     * ya que aparecen tanto en el texto normal como en la tabla.
+     */
+    private function colocarTextoComplejoRepetido(
+        TemplateProcessor $template,
+        string $marcador,
+        TextRun $valor,
+        int $apariciones
+    ): void {
+        if (count($valor->getElements()) === 0) {
+            $template->setValue(
+                $marcador,
+                ''
+            );
+
+            return;
+        }
+
+        for ($i = 0; $i < $apariciones; $i++) {
+            $template->setComplexValue(
+                $marcador,
+                clone $valor
+            );
+        }
     }
 
     /**
@@ -993,20 +1194,99 @@ class ActaCierreController extends Controller
      */
     private function clonarParticipantes(
         TemplateProcessor $template,
-        array $participantes
+        array $participantes,
+        string $huboRepreguntas
     ): void {
-        if (!$participantes) {
-            $template->setValue('empresa', '');
-            $template->setValue('repregunta', '');
-            $template->setValue('respuesta', '');
+        $variablesPlantilla = $template->getVariables();
+
+        $tieneEmpresa = in_array(
+            'empresa',
+            $variablesPlantilla,
+            true
+        );
+
+        $tieneRepregunta = in_array(
+            'repregunta',
+            $variablesPlantilla,
+            true
+        );
+
+        $tieneRespuesta = in_array(
+            'respuesta',
+            $variablesPlantilla,
+            true
+        );
+
+        /*
+         * Cuando NO hubo repreguntas, no se necesita clonar
+         * ninguna fila de tabla.
+         *
+         * Si las etiquetas existen en la plantilla, únicamente
+         * se eliminan para que no aparezcan en el documento.
+         * Si no existen, el documento se genera normalmente.
+         */
+        if ($huboRepreguntas === 'no') {
+            if ($tieneEmpresa) {
+                $template->setValue(
+                    'empresa',
+                    ''
+                );
+            }
+
+            if ($tieneRepregunta) {
+                $template->setValue(
+                    'repregunta',
+                    ''
+                );
+            }
+
+            if ($tieneRespuesta) {
+                $template->setValue(
+                    'respuesta',
+                    ''
+                );
+            }
 
             return;
         }
 
-        $template->cloneRow(
-            'empresa',
-            count($participantes)
-        );
+        /*
+         * A partir de aquí solamente aplica cuando SÍ hubo
+         * repreguntas.
+         */
+        if (!$participantes) {
+            throw ValidationException::withMessages([
+                'participantes' =>
+                    'Debe agregar al menos un participante cuando sí hubo repreguntas.',
+            ]);
+        }
+
+        /*
+         * Para clonar filas, ${empresa} debe existir dentro
+         * de una fila real de tabla en la plantilla Word.
+         */
+        if (!$tieneEmpresa) {
+            throw new \RuntimeException(
+                'La plantilla Word no contiene la etiqueta ${empresa} dentro de una fila de tabla. '
+                . 'Cuando sí hubo repreguntas, coloca ${empresa}, ${repregunta} '
+                . 'y ${respuesta} en la misma fila de una tabla.'
+            );
+        }
+
+        try {
+            $template->cloneRow(
+                'empresa',
+                count($participantes)
+            );
+        } catch (\Throwable $e) {
+            throw new \RuntimeException(
+                'No se pudo clonar la tabla de repreguntas. '
+                . 'La etiqueta ${empresa} debe estar completa, sin espacios '
+                . 'y dentro de una celda de una fila real de tabla en Word.',
+                0,
+                $e
+            );
+        }
 
         foreach ($participantes as $indice => $participante) {
             $fila = $indice + 1;

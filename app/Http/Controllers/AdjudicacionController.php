@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DocumentoAdjudicacion;
 use App\Models\Persona;
 use App\Models\Procedimiento;
+use App\Services\HistorialDocumentosService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -105,7 +106,10 @@ class AdjudicacionController extends Controller
     /**
      * Genera el oficio de adjudicación.
      */
-    public function generar(Request $request)
+    public function generar(
+        Request $request,
+        HistorialDocumentosService $historialDocumentos
+    )
     {
         $request->validate(
             [
@@ -859,7 +863,47 @@ class AdjudicacionController extends Controller
             );
 
             /*
-             * Eliminar plantilla temporal.
+             * Verificar que el Word se haya generado correctamente
+             * antes de registrarlo en el historial.
+             */
+            clearstatcache(
+                true,
+                $outputPath
+            );
+
+            if (
+                !File::exists($outputPath) ||
+                !File::isFile($outputPath)
+            ) {
+                throw new \RuntimeException(
+                    'El documento generado no se encontró en el almacenamiento.'
+                );
+            }
+
+            if ((int) File::size($outputPath) <= 0) {
+                throw new \RuntimeException(
+                    'El documento Word generado está vacío.'
+                );
+            }
+
+            /*
+             * Registrar una copia en el historial del usuario.
+             *
+             * Esta copia permanecerá disponible durante 10 días
+             * para visualizarse y descargarse nuevamente desde
+             * el módulo de historial de documentos.
+             */
+            $historialDocumentos->registrar(
+                $request->user(),
+                $outputPath,
+                $nombreDocumento,
+                'Oficio de adjudicación',
+                trim((string) $numeroProcedimiento),
+                10
+            );
+
+            /*
+             * Eliminar únicamente la plantilla temporal.
              */
             if (
                 $templatePath &&
@@ -868,6 +912,11 @@ class AdjudicacionController extends Controller
                 File::delete($templatePath);
             }
 
+            /*
+             * El archivo temporal usado para la descarga inmediata
+             * se elimina después de enviarse. La copia registrada
+             * en el historial permanece guardada durante 10 días.
+             */
             return response()
                 ->download(
                     $outputPath,

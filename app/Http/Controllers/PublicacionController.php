@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Persona;
 use App\Models\Procedimiento;
+use App\Services\HistorialDocumentosService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -70,7 +71,10 @@ class PublicacionController extends Controller
     /**
      * Genera el documento Word del oficio de publicación.
      */
-    public function generar(Request $request)
+    public function generar(
+        Request $request,
+        HistorialDocumentosService $historialDocumentos
+    )
     {
         $request->validate(
             [
@@ -457,8 +461,41 @@ class PublicacionController extends Controller
                 $outputPath
             );
 
+            clearstatcache(
+                true,
+                $outputPath
+            );
+
+            if (
+                !File::exists($outputPath) ||
+                !File::isFile($outputPath)
+            ) {
+                throw new \RuntimeException(
+                    'El documento generado no se encontró en el almacenamiento.'
+                );
+            }
+
+            if ((int) File::size($outputPath) <= 0) {
+                throw new \RuntimeException(
+                    'El documento Word generado está vacío.'
+                );
+            }
+
             /*
-             * Eliminar la plantilla temporal.
+             * Registrar una copia en el historial del usuario.
+             * La copia permanece disponible durante 10 días.
+             */
+            $historialDocumentos->registrar(
+                $request->user(),
+                $outputPath,
+                $nombreDocumento,
+                'Oficio de publicación',
+                trim((string) $numeroProcedimiento),
+                10
+            );
+
+            /*
+             * Eliminar únicamente la plantilla temporal.
              */
             if (
                 $templatePath &&
@@ -467,6 +504,10 @@ class PublicacionController extends Controller
                 File::delete($templatePath);
             }
 
+            /*
+             * La copia temporal de descarga se elimina después
+             * de enviarse. La copia del historial se conserva.
+             */
             return response()
                 ->download(
                     $outputPath,

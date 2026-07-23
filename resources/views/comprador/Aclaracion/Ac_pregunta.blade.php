@@ -12,7 +12,7 @@
 
             <form
                 id="form-ac-pregunta"
-                action="{{ route('ac.generar') }}"
+                action="{{ route('acpregunta.generar') }}"
                 method="POST"
                 enctype="multipart/form-data"
                 class="conv-form"
@@ -527,6 +527,10 @@
     .search-message.error {
         color: #b42318;
     }
+
+    .search-message.info {
+        color: #055160;
+    }
 </style>
 
 <script>
@@ -536,7 +540,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const administradorAnterior = @json((string) old('admi_contrato', ''));
 
-    const buscarProcedimientoBaseUrl = @json(url('/buscar-procedimiento-ac'));
+    const buscarProcedimientoUrl = @json(
+        route('acpregunta.buscar', ['valor' => '__VALOR__'])
+    );
 
     const form = document.getElementById('form-ac-pregunta');
     const botonGenerar = document.getElementById('btn_generar');
@@ -598,7 +604,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const response = await fetch(
-                `${buscarProcedimientoBaseUrl}/${encodeURIComponent(valor)}`,
+                buscarProcedimientoUrl.replace('__VALOR__', encodeURIComponent(valor)),
                 {
                     headers: {
                         'Accept': 'application/json',
@@ -631,8 +637,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 respuesta.area_requirente_id || '';
             inputAreaRequirenteNombre.value =
                 respuesta.area_requirente_nombre || '';
+            /*
+             * La referencia se obtiene de personas.plantilla_referencia,
+             * usando el id guardado en procedimientos.id_persona.
+             * El campo queda editable y el valor final del formulario
+             * será el que se coloque en el Word.
+             */
             inputOficioRespuestas.value =
-                respuesta.plantilla_referencia_requirente || '';
+                respuesta.oficio_respuestas
+                || respuesta.plantilla_referencia_requirente
+                || '';
 
             if (!respuesta.area_requirente_id) {
                 throw new Error(
@@ -672,10 +686,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function mostrarEstadoBusqueda(mensaje, tipo = 'info') {
         estadoBusqueda.textContent = mensaje;
         estadoBusqueda.hidden = !mensaje;
-        estadoBusqueda.classList.remove('success', 'error');
+        estadoBusqueda.classList.remove('success', 'error', 'info');
 
         if (mensaje) {
-            estadoBusqueda.classList.add(`is-${tipo}`);
+            estadoBusqueda.classList.add(tipo);
         }
     }
 
@@ -1299,10 +1313,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('No fue posible generar el documento.');
             }
             const blob=await respuesta.blob();
-            let nombre='Documento_generado.docx';
-            const d=respuesta.headers.get('Content-Disposition');
-            if(d){const m=d.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);if(m&&m[1])nombre=decodeURIComponent(m[1].replace(/["']/g,''));}
-            const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=nombre;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+            let nombre = 'Acta_preguntas.docx';
+            const disposicion = respuesta.headers.get('Content-Disposition');
+
+            if (disposicion) {
+                const utf8 = disposicion.match(
+                    /filename\*=UTF-8''([^;]+)/i
+                );
+                const normal = disposicion.match(
+                    /filename="?([^";]+)"?/i
+                );
+                const encontrado = utf8?.[1] || normal?.[1];
+
+                if (encontrado) {
+                    try {
+                        nombre = decodeURIComponent(
+                            encontrado.replace(/["']/g, '').trim()
+                        );
+                    } catch {
+                        nombre = encontrado.replace(/["']/g, '').trim();
+                    }
+                }
+            }
+
+            const url = URL.createObjectURL(blob);
+            const enlace = document.createElement('a');
+            enlace.href = url;
+            enlace.download = nombre;
+            document.body.appendChild(enlace);
+            enlace.click();
+            enlace.remove();
+            URL.revokeObjectURL(url);
             if(archivoWord){archivoWord.value='';archivoWord.classList.remove('input-error');}
             mostrarAlertaFormulario('Documento generado correctamente. Ya puede seleccionar otra plantilla Word y generar nuevamente.','success');
         }catch(error){
